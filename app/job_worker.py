@@ -12,8 +12,14 @@ from app.db import SessionLocal
 from app.job_executor import execute_prediction_job
 from app.jobs import MAX_RETRIES, QUEUE_KEY, JobStatus, PredictionJobModel, utcnow
 from app.metrics import JOB_COMPLETED, JOB_DURATION, JOB_FAILED, JOB_RETRIES
+from app.observability import configure_logfire
 
 logger = logging.getLogger(__name__)
+
+configure_logfire()
+logfire.instrument_sqlalchemy()
+logfire.instrument_httpx()
+logfire.instrument_redis()
 
 
 async def process_job(job_id: str) -> None:
