@@ -127,3 +127,24 @@ FastAPI OpenAPI is available at `/docs` and `/openapi.json` for frontend client 
 GitHub Actions runs on pushes and pull requests. It installs the development dependencies, runs Ruff, runs the test suite with PostgreSQL, and applies the Alembic migrations against PostgreSQL.
 
 The CI workflow is the minimum merge gate. A deployment should also run the same migration command against the target PostgreSQL database before serving traffic.
+
+
+## Phase 15 production hardening
+
+PostgreSQL is the primary database for development, CI, and deployment.
+
+Database connections use SQLAlchemy pooling with configurable:
+
+- `DATABASE_POOL_SIZE`
+- `DATABASE_MAX_OVERFLOW`
+- `DATABASE_POOL_TIMEOUT`
+
+Set `API_KEY` in a protected deployment environment to require `X-API-Key` on API routes. The liveness and readiness endpoints remain public so container and platform health checks can run without credentials.
+
+Example:
+
+```env
+API_KEY=replace-with-a-secret
+```
+
+Do not commit real API keys to the repository.
