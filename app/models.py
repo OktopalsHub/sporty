@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, JSON, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, JSON, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -29,10 +29,11 @@ class SelectionSessionModel(Base):
 class SelectionModel(Base):
     __tablename__ = "selections"
     __table_args__ = (
+        UniqueConstraint("session_id", "id", name="pk_selection_session_id"),
         UniqueConstraint("session_id", "event_id", name="uq_selection_session_event"),
     )
 
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    id: Mapped[str] = mapped_column(String(64))
     session_id: Mapped[str] = mapped_column(
         ForeignKey("selection_sessions.id", ondelete="CASCADE"),
         nullable=False,
