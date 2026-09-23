@@ -21,6 +21,12 @@ logger = logging.getLogger(__name__)
 
 
 async def process_job(job_id: str) -> None:
+    redis = get_redis()
+    lock_key = f"job-lock:{job_id}"
+    acquired = await redis.set(lock_key, "1", nx=True, ex=3600)
+    if not acquired:
+        return
+
     with SessionLocal() as db:
         job = db.get(PredictionJobModel, job_id)
         if job is None or job.status == JobStatus.COMPLETED:
