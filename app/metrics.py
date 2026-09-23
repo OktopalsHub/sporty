@@ -1,31 +1,22 @@
-from prometheus_client import Counter, Gauge, Histogram
+import logfire
 
-HTTP_REQUESTS = Counter(
-    "sporty_http_requests_total",
-    "Total HTTP requests.",
-    ["method", "path", "status"],
+JOB_COMPLETED = logfire.metric_counter(
+    "sporty.jobs.completed",
+    unit="1",
+    description="Number of prediction jobs completed successfully.",
 )
-HTTP_LATENCY = Histogram(
-    "sporty_http_request_duration_seconds",
-    "HTTP request duration in seconds.",
-    ["method", "path"],
+JOB_FAILED = logfire.metric_counter(
+    "sporty.jobs.failed",
+    unit="1",
+    description="Number of prediction jobs that reached the failed state.",
 )
-ACTIVE_REQUESTS = Gauge(
-    "sporty_http_active_requests",
-    "Number of requests currently being processed.",
+JOB_RETRIES = logfire.metric_counter(
+    "sporty.jobs.retries",
+    unit="1",
+    description="Number of prediction job retry attempts.",
 )
-JOBS_TOTAL = Counter(
-    "sporty_jobs_total",
-    "Prediction jobs by final state.",
-    ["job_type", "status"],
-)
-JOB_DURATION = Histogram(
-    "sporty_job_duration_seconds",
-    "Prediction job execution duration.",
-    ["job_type"],
-)
-JOB_RETRIES = Counter(
-    "sporty_job_retries_total",
-    "Prediction job retries.",
-    ["job_type"],
+JOB_DURATION = logfire.metric_histogram(
+    "sporty.jobs.duration",
+    unit="s",
+    description="Prediction job execution duration in seconds.",
 )
