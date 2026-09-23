@@ -44,7 +44,7 @@ alembic upgrade head
 
 ## Redis
 
-Redis is used for distributed API rate limiting.
+Redis is used for distributed API rate limiting and the background prediction queue.
 
 For local development:
 
@@ -73,7 +73,7 @@ Build and run the production-like PostgreSQL and Redis stack:
 docker compose up --build
 ```
 
-The container entrypoint runs `alembic upgrade head` before starting Uvicorn. Production deployments should use the same migration-first pattern and provide secrets through the deployment environment, not the image.
+The container entrypoint runs `alembic upgrade head` before starting the API. Production deployments should use the same migration-first pattern and provide secrets through the deployment environment, not the image.
 
 ## Phase 13 frontend integration contract
 
@@ -146,7 +146,6 @@ Do not commit real API keys to the repository.
 
 Phase 16 adds Redis-backed distributed rate limiting so multiple API instances share the same request budget. It also makes Redis part of readiness checks and local/CI infrastructure.
 
-
 ## Background prediction jobs
 
 Long-running prediction generation can be submitted to the Redis-backed worker queue.
@@ -169,17 +168,42 @@ The API returns `202 Accepted` with a job ID. Poll `GET /api/v1/jobs/{job_id}` f
 
 The Docker stack now runs API, worker, PostgreSQL, and Redis as separate services. The worker consumes the `jobs:prediction` Redis queue and retries failed jobs up to three attempts.
 
-
 ## Phase 18 observability
 
-Prometheus metrics are exposed at `GET /api/v1/metrics`.
+The application uses Pydantic Logfire for production observability instead of exposing a Prometheus endpoint.
 
-The metrics include:
+Logfire instruments:
 
-- HTTP request count and latency
-- Active HTTP requests
-- Prediction job completion/failure/retry counts
-- Prediction job duration
-- Job retry count
+- FastAPI request traces and validation errors
+- SQLAlchemy database queries
+- HTTPX outbound requests, including SportyBet calls
+- Redis commands
+- Prediction worker spans
+- Prediction job completion, failure, retry, and duration metrics
+- Standard application logs can be added to the same Logfire project when needed
 
-The metrics endpoint is intended for an internal monitoring system such as Prometheus. It is not included in the public OpenAPI contract.
+FastAPI Cloud can connect a Logfire project to an app and inject the `LOGFIRE_TOKEN` environment variable as an encrypted secret. The application uses `send_to_logfire="if-token-present"`, so local tests do not require a Logfire token.
+
+For local development:
+
+```env
+LOGFIRE_TOKEN=
+LOGFIRE_SEND_TO_LOGFIRE=if-token-present
+LOGFIRE_SERVICE_NAME=Sporty
+LOGFIRE_SERVICE_VERSION=0.1.0
+LOGFIRE_ENVIRONMENT=development
+```
+
+For FastAPI Cloud, connect the Logfire integration to the deployed app and let FastAPI Cloud provide `LOGFIRE_TOKEN`.
+
+The old `GET /api/v1/metrics` Prometheus endpoint has been removed. No Prometheus server is required.
+
+## FastAPI Cloud
+
+Production deployment should use FastAPI Cloud with the following external services:
+
+- Neon PostgreSQL
+- Managed Redis
+- Logfire
+
+The application remains responsible for API routes, background jobs, migrations, and business logic.
