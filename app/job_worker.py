@@ -5,11 +5,13 @@ import json
 import logging
 import time
 
+import logfire
+
 from app.cache import get_redis
 from app.db import SessionLocal
 from app.job_executor import execute_prediction_job
 from app.jobs import MAX_RETRIES, QUEUE_KEY, JobStatus, PredictionJobModel, utcnow
-from app.metrics import JOB_DURATION, JOB_RETRIES, JOBS_TOTAL
+from app.metrics import JOB_COMPLETED, JOB_DURATION, JOB_FAILED, JOB_RETRIES
 
 logger = logging.getLogger(__name__)
 
@@ -33,37 +35,52 @@ async def process_job(job_id: str) -> None:
             payload = dict(job.payload)
 
         started = time.perf_counter()
-        try:
-            result = await execute_prediction_job(job_type, payload)
-        except Exception as exc:
-            with SessionLocal() as db:
-                job = db.get(PredictionJobModel, job_id)
-                if job is None:
-                    return
-                job.retry_count += 1
-                job.error = str(exc)
-                job.progress = 0
-                should_retry = job.retry_count < MAX_RETRIES
+        with logfire.span("prediction_job", job_id=job_id, job_type=job_type):
+            try:
+                result = await execute_prediction_job(job_type, payload)
+            except Exception as exc:
+                with SessionLocal() as db:
+                    job = db.get(PredictionJobModel, job_id)
+                    if job is None:
+                        return
+                    job.retry_count += 1
+                    job.error = str(exc)
+                    job.progress = 0
+                    should_retry = job.retry_count < MAX_RETRIES
+                    if should_retry:
+                        job.status = JobStatus.QUEUED
+                    else:
+                        job.status = JobStatus.FAILED
+                        job.completed_at = utcnow()
+                    db.commit()
+
+                JOB_RETRIES.add(1)
+                JOB_DURATION.record(time.perf_counter() - started)
+
                 if should_retry:
-                    job.status = JobStatus.QUEUED
+                    logfire.warning(
+                        "Prediction job failed and will be retried",
+                        job_id=job_id,
+                        job_type=job_type,
+                        retry_count=job.retry_count,
+                    )
+                    await asyncio.sleep(min(2 ** job.retry_count, 10))
+                    await redis.rpush(
+                        QUEUE_KEY,
+                        json.dumps({"job_id": job_id}, separators=(",", ":")),
+                    )
                 else:
-                    job.status = JobStatus.FAILED
-                    job.completed_at = utcnow()
-                db.commit()
+                    JOB_FAILED.add(1)
+                    logfire.error(
+                        "Prediction job failed permanently",
+                        job_id=job_id,
+                        job_type=job_type,
+                        retry_count=job.retry_count,
+                    )
+                return
 
-            JOB_RETRIES.labels(job_type).inc()
-            if should_retry:
-                await asyncio.sleep(min(2 ** job.retry_count, 10))
-                await redis.rpush(
-                    QUEUE_KEY,
-                    json.dumps({"job_id": job_id}, separators=(",", ":")),
-                )
-            JOB_DURATION.labels(job_type).observe(time.perf_counter() - started)
-            JOBS_TOTAL.labels(job_type, "failed" if not should_retry else "retrying").inc()
-            return
-
-        JOB_DURATION.labels(job_type).observe(time.perf_counter() - started)
-        JOBS_TOTAL.labels(job_type, "completed").inc()
+        JOB_DURATION.record(time.perf_counter() - started)
+        JOB_COMPLETED.add(1)
         with SessionLocal() as db:
             job = db.get(PredictionJobModel, job_id)
             if job is None:
