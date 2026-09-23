@@ -42,7 +42,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["/worker-entrypoint.sh"]
+    entrypoint: ["/worker-entrypoint.sh"]
 
   api:
     build: .
