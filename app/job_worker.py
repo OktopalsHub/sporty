@@ -8,6 +8,7 @@ import time
 import logfire
 
 from app.cache import get_redis
+from app.db import engine
 from app.db import SessionLocal
 from app.job_executor import execute_prediction_job
 from app.jobs import MAX_RETRIES, QUEUE_KEY, JobStatus, PredictionJobModel, utcnow
@@ -17,7 +18,7 @@ from app.observability import configure_logfire
 logger = logging.getLogger(__name__)
 
 configure_logfire()
-logfire.instrument_sqlalchemy()
+logfire.instrument_sqlalchemy(engine=engine)
 logfire.instrument_httpx()
 logfire.instrument_redis()
 
