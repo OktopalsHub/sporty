@@ -168,3 +168,18 @@ Supported job types are `1k`, `5k`, `weekly_safe`, `over_1_5`, `over_2_5`, `btts
 The API returns `202 Accepted` with a job ID. Poll `GET /api/v1/jobs/{job_id}` for status, progress, retries, errors, and the completed result.
 
 The Docker stack now runs API, worker, PostgreSQL, and Redis as separate services. The worker consumes the `jobs:prediction` Redis queue and retries failed jobs up to three attempts.
+
+
+## Phase 18 observability
+
+Prometheus metrics are exposed at `GET /api/v1/metrics`.
+
+The metrics include:
+
+- HTTP request count and latency
+- Active HTTP requests
+- Prediction job completion/failure/retry counts
+- Prediction job duration
+- Job retry count
+
+The metrics endpoint is intended for an internal monitoring system such as Prometheus. It is not included in the public OpenAPI contract.
