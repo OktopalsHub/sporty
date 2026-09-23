@@ -145,3 +145,26 @@ Do not commit real API keys to the repository.
 ## Phase 16 production reliability
 
 Phase 16 adds Redis-backed distributed rate limiting so multiple API instances share the same request budget. It also makes Redis part of readiness checks and local/CI infrastructure.
+
+
+## Background prediction jobs
+
+Long-running prediction generation can be submitted to the Redis-backed worker queue.
+
+Create a job:
+
+```http
+POST /api/v1/jobs
+Content-Type: application/json
+
+{
+  "job_type": "1k",
+  "hours": 168
+}
+```
+
+Supported job types are `1k`, `5k`, `weekly_safe`, `over_1_5`, `over_2_5`, `btts`, `under_2_5`, and `under_4_5`.
+
+The API returns `202 Accepted` with a job ID. Poll `GET /api/v1/jobs/{job_id}` for status, progress, retries, errors, and the completed result.
+
+The Docker stack now runs API, worker, PostgreSQL, and Redis as separate services. The worker consumes the `jobs:prediction` Redis queue and retries failed jobs up to three attempts.
