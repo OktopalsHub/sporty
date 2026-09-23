@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     database_pool_size: int = 10
     database_max_overflow: int = 20
     database_pool_timeout: int = 30
+    database_pool_recycle: int = 300
+    database_connect_timeout: int = 10
     redis_url: str = "redis://localhost:6379/0"
     redis_timeout: float = 1.0
     rate_limit_requests: int = 120
