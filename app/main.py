@@ -1,7 +1,6 @@
 import secrets
 from uuid import uuid4
 
-import logfire
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -22,22 +21,17 @@ from app.cache import get_redis
 from app.config import get_settings
 from app.db import engine
 from app.rate_limit import RedisRateLimiter
+from app.observability import configure_logfire
 
 settings = get_settings()
 
-logfire.configure(
-    send_to_logfire="if-token-present",
-    service_name=settings.app_name,
-    service_version="0.1.0",
-    environment=settings.app_env,
-)
-logfire.instrument_fastapi(app=None) if False else None
-logfire.instrument_sqlalchemy(engine=engine)
-logfire.instrument_httpx()
-logfire.instrument_redis()
+configure_logfire()
 
 app = FastAPI(title=settings.app_name, version="0.1.0")
 logfire.instrument_fastapi(app)
+logfire.instrument_sqlalchemy(engine=engine)
+logfire.instrument_httpx()
+logfire.instrument_redis()
 
 rate_limiter = RedisRateLimiter(
     get_redis(),
