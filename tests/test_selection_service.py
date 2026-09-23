@@ -2,6 +2,11 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.db import Base, _engine_kwargs
+from app import models  # noqa: F401
 
 from app.domain.markets import Market
 from app.domain.predictions import Confidence, Prediction
@@ -10,7 +15,10 @@ from app.services.selection_service import SelectionConflictError, SelectionServ
 
 @pytest.fixture
 def selection_service(tmp_path):
-    return SelectionService(database_url=f"sqlite:///{tmp_path / 'sporty.db'}")
+    database_url = f"sqlite:///{tmp_path / "sporty.db"}"
+    engine = create_engine(database_url, future=True, **_engine_kwargs(database_url))
+    Base.metadata.create_all(bind=engine)
+    return SelectionService(session_factory=sessionmaker(bind=engine, autoflush=False, expire_on_commit=False))
 
 
 def prediction(index: int, event_id: str | None = None) -> Prediction:
