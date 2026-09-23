@@ -1,4 +1,5 @@
 import secrets
+import time
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -12,6 +13,7 @@ from app.api.routes.health import router as health_router
 from app.api.routes.history import router as history_router
 from app.api.routes.jobs import router as jobs_router
 from app.api.routes.meta import router as meta_router
+from app.api.routes.metrics import router as metrics_router
 from app.api.routes.one_k import router as one_k_router
 from app.api.routes.predictions import router as predictions_router
 from app.api.routes.selections import router as selections_router
@@ -20,6 +22,7 @@ from app.api.routes.weekly_safe import router as weekly_safe_router
 from app.cache import get_redis
 from app.config import get_settings
 from app.rate_limit import RedisRateLimiter
+from app.metrics import ACTIVE_REQUESTS, HTTP_LATENCY, HTTP_REQUESTS
 
 settings = get_settings()
 rate_limiter = RedisRateLimiter(
@@ -42,6 +45,8 @@ app.add_middleware(
 
 @app.middleware("http")
 async def request_context(request: Request, call_next):
+    started = time.perf_counter()
+    ACTIVE_REQUESTS.inc()
     request_id = request.headers.get("X-Request-ID") or str(uuid4())
 
     if settings.api_key and request.url.path.startswith(settings.api_prefix):
@@ -105,6 +110,10 @@ async def request_context(request: Request, call_next):
             },
         )
     response.headers["X-Request-ID"] = request_id
+    path = request.url.path
+    HTTP_REQUESTS.labels(request.method, path, response.status_code).inc()
+    HTTP_LATENCY.labels(request.method, path).observe(time.perf_counter() - started)
+    ACTIVE_REQUESTS.dec()
     return response
 
 
@@ -116,6 +125,7 @@ async def shutdown() -> None:
 
 
 app.include_router(health_router, prefix=settings.api_prefix)
+app.include_router(metrics_router, prefix=settings.api_prefix)
 app.include_router(predictions_router, prefix=settings.api_prefix)
 app.include_router(selections_router, prefix=settings.api_prefix)
 app.include_router(tickets_router, prefix=settings.api_prefix)
