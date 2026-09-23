@@ -1,4 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from uuid import uuid4
 
 from app.api.routes.analysis import router as analysis_router
 from app.api.routes.five_k import router as five_k_router
@@ -11,12 +13,26 @@ from app.api.routes.selections import router as selections_router
 from app.api.routes.tickets import router as tickets_router
 from app.api.routes.weekly_safe import router as weekly_safe_router
 from app.config import get_settings
-from app.db import init_db
 
 settings = get_settings()
-init_db()
 
 app = FastAPI(title=settings.app_name, version="0.1.0")
+
+
+@app.middleware("http")
+async def request_context(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid4())
+    try:
+        response = await call_next(request)
+    except Exception:
+        response = JSONResponse(
+            status_code=500,
+            content={"error": {"code": "internal_server_error", "message": "Internal server error"}, "request_id": request_id},
+        )
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+
 app.include_router(health_router, prefix=settings.api_prefix)
 app.include_router(predictions_router, prefix=settings.api_prefix)
 app.include_router(selections_router, prefix=settings.api_prefix)
