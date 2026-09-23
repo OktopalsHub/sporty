@@ -15,6 +15,16 @@ services:
     volumes:
       - sporty_postgres:/var/lib/postgresql/data
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   api:
     build: .
     environment:
@@ -23,7 +33,11 @@ services:
       DATABASE_POOL_SIZE: 10
       DATABASE_MAX_OVERFLOW: 20
       DATABASE_POOL_TIMEOUT: 30
-      API_KEY: 
+      REDIS_URL: redis://redis:6379/0
+      REDIS_TIMEOUT: 1.0
+      RATE_LIMIT_REQUESTS: 120
+      RATE_LIMIT_WINDOW_SECONDS: 60
+      API_KEY:
       FRONTEND_ORIGINS: http://localhost:3000,http://localhost:5173
       SPORTYBET_BASE_URL: https://www.sportybet.com
       SPORTYBET_REGION: ng
@@ -43,6 +57,8 @@ services:
       retries: 5
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
 volumes:
