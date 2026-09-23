@@ -42,6 +42,12 @@ After installing dependencies, run:
 alembic upgrade head
 ```
 
+If you already have a Phase 11 database created with `create_all`, verify that its schema is current and then mark the initial migration as applied instead of recreating the tables:
+
+```bash
+alembic stamp 0001_initial
+```
+
 For MySQL, set `DATABASE_URL` first:
 
 ```env
