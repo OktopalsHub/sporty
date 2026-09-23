@@ -1,4 +1,4 @@
-from decimal import Decimal
+from datetime import datetime\nfrom decimal import Decimal\nimport hashlib
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -17,7 +17,7 @@ selection_service = SelectionService()
 
 class SelectionInput(BaseModel):
     id: str = Field(min_length=1)
-    event_id: str = Field(min_length=1)
+    event_id: str = Field(min_length=1)\n    start_time: datetime
     home_team: str
     away_team: str
     market: Market
@@ -28,7 +28,7 @@ class SelectionInput(BaseModel):
     odds: Decimal = Field(gt=1)
     probability: float = Field(ge=0.0, le=1.0)
     confidence: Confidence
-    reasons: list[str] = []
+    reasons: list[str] = Field(default_factory=list)
 
 
 class SelectionResponse(SelectionInput):
@@ -53,7 +53,7 @@ def _to_prediction(item: SelectionInput) -> Prediction:
         event_id=item.event_id,
         home_team=item.home_team,
         away_team=item.away_team,
-        start_time=datetime.now(timezone.utc),
+        start_time=item.start_time,
         market=item.market,
         market_id=item.market_id,
         specifier=item.specifier,
