@@ -15,7 +15,7 @@ from app.services.selection_service import SelectionConflictError, SelectionServ
 
 @pytest.fixture
 def selection_service(tmp_path):
-    database_url = f"sqlite:///{tmp_path / "sporty.db"}"
+    database_url = f"sqlite:///{tmp_path / 'sporty.db'}"
     engine = create_engine(database_url, future=True, **_engine_kwargs(database_url))
     Base.metadata.create_all(bind=engine)
     return SelectionService(session_factory=sessionmaker(bind=engine, autoflush=False, expire_on_commit=False))
@@ -83,7 +83,9 @@ def test_clear_removes_all_selections(selection_service):
 
 def test_selection_persists_across_service_instances(tmp_path):
     database_url = f"sqlite:///{tmp_path / 'sporty.db'}"
-    first = SelectionService(database_url=database_url)
+    engine = create_engine(database_url, future=True, **_engine_kwargs(database_url))
+    Base.metadata.create_all(bind=engine)
+    first = SelectionService(session_factory=sessionmaker(bind=engine, autoflush=False, expire_on_commit=False))
     session = first.create_session()
     item = prediction(1)
 
@@ -96,7 +98,10 @@ def test_selection_persists_across_service_instances(tmp_path):
 
 
 def test_same_prediction_can_be_selected_in_different_sessions(tmp_path):
-    service = SelectionService(database_url=f"sqlite:///{tmp_path / 'sporty.db'}")
+    database_url = f"sqlite:///{tmp_path / 'sporty.db'}"
+    engine = create_engine(database_url, future=True, **_engine_kwargs(database_url))
+    Base.metadata.create_all(bind=engine)
+    service = SelectionService(session_factory=sessionmaker(bind=engine, autoflush=False, expire_on_commit=False))
     first = service.create_session()
     second = service.create_session()
     item = prediction(1)
