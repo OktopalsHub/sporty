@@ -9,44 +9,17 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-
-      - name: Install
-        run: pip install -e ".[dev]"
-
-      - name: Lint
-        run: ruff check .
-
-      - name: Test
-        run: pytest --cov=app --cov-report=term-missing
-
-      - name: Migration check
-        env:
-          DATABASE_URL: sqlite:///./ci.db
-        run: alembic upgrade head
-
-  mysql-migration:
-    runs-on: ubuntu-latest
     services:
-      mysql:
-        image: mysql:8.4
+      postgres:
+        image: postgres:17
         env:
-          MYSQL_DATABASE: sporty
-          MYSQL_USER: sporty
-          MYSQL_PASSWORD: sporty
-          MYSQL_ROOT_PASSWORD: root
+          POSTGRES_DB: sporty
+          POSTGRES_USER: sporty
+          POSTGRES_PASSWORD: sporty
         ports:
-          - 3306:3306
+          - 5432:5432
         options: >-
-          --health-cmd="mysqladmin ping -h localhost -uroot -proot"
+          --health-cmd="pg_isready -U sporty -d sporty"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=20
@@ -64,7 +37,15 @@ jobs:
       - name: Install
         run: pip install -e ".[dev]"
 
-      - name: Apply MySQL migrations
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
         env:
-          DATABASE_URL: mysql+pymysql://sporty:sporty@127.0.0.1:3306/sporty
+          DATABASE_URL: postgresql+psycopg://sporty:sporty@127.0.0.1:5432/sporty
+        run: pytest --cov=app --cov-report=term-missing
+
+      - name: Apply PostgreSQL migrations
+        env:
+          DATABASE_URL: postgresql+psycopg://sporty:sporty@127.0.0.1:5432/sporty
         run: alembic upgrade head
