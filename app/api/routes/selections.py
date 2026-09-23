@@ -48,6 +48,12 @@ def _to_prediction(item: SelectionInput) -> Prediction:
     # building; the event date can be refreshed when booking is implemented.
     from datetime import datetime, timezone
 
+    expected_id = hashlib.sha256(
+        f"{item.event_id}:{item.market_id}:{item.outcome_id}".encode()
+    ).hexdigest()[:24]
+    if item.id != expected_id:
+        raise ValueError("Invalid prediction id")
+
     return Prediction(
         id=item.id,
         event_id=item.event_id,
@@ -124,6 +130,8 @@ async def add_selection(
         raise HTTPException(status_code=404, detail="Selection session not found") from exc
     except SelectionConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.delete(
