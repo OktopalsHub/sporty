@@ -1,6 +1,6 @@
 from datetime import datetime\nfrom decimal import Decimal\nimport hashlib
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from app.domain.markets import Market
@@ -141,10 +141,10 @@ async def remove_selection(
         raise HTTPException(status_code=404, detail="Selection or session not found") from exc
 
 
-@router.delete("/sessions/{session_id}", response_model=SelectionSessionResponse)
-async def clear_selection_session(session_id: str) -> SelectionSessionResponse:
+@router.delete("/sessions/{session_id}", status_code=204)
+async def delete_selection_session(session_id: str) -> Response:
     try:
-        selection_service.clear(session_id)
-        return _response(session_id)
+        selection_service.delete_session(session_id)
+        return Response(status_code=204)
     except SelectionNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Selection session not found") from exc
