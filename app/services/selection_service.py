@@ -97,14 +97,13 @@ class SelectionService:
                     f"Event {prediction.event_id} already has selection {existing.id}"
                 )
 
-            item = db.get(SelectionModel, prediction.id)
+            item = db.query(SelectionModel).filter(
+                SelectionModel.session_id == session_id,
+                SelectionModel.id == prediction.id,
+            ).first()
             now = datetime.now(timezone.utc)
             if item is None:
                 db.add(self._to_model(session_id, prediction, now))
-            elif item.session_id != session_id:
-                raise SelectionConflictError(
-                    f"Selection {prediction.id} already belongs to another session"
-                )
             else:
                 item.updated_at = now
 
@@ -118,8 +117,11 @@ class SelectionService:
             if session is None:
                 raise SelectionNotFoundError(session_id)
 
-            item = db.get(SelectionModel, prediction_id)
-            if item is None or item.session_id != session_id:
+            item = db.query(SelectionModel).filter(
+                SelectionModel.session_id == session_id,
+                SelectionModel.id == prediction_id,
+            ).first()
+            if item is None:
                 raise SelectionNotFoundError(prediction_id)
 
             db.delete(item)
