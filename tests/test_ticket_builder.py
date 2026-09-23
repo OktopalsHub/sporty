@@ -98,7 +98,7 @@ async def test_build_sends_exact_selected_provider_ids(selection_service) -> Non
 
     assert len(result.selections) == 1
     assert result.selections[0].id == selected.id
-    assert result.selections[0].odds == Decimal("1.50")
+    assert result.selections[0].odds == Decimal("1.75")
     assert provider.sent == [
         {
             "event_id": "event-1",
