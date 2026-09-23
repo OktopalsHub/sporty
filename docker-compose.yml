@@ -20,6 +20,10 @@ services:
     environment:
       APP_ENV: production
       DATABASE_URL: postgresql+psycopg://sporty:sporty@db:5432/sporty
+      DATABASE_POOL_SIZE: 10
+      DATABASE_MAX_OVERFLOW: 20
+      DATABASE_POOL_TIMEOUT: 30
+      API_KEY: 
       FRONTEND_ORIGINS: http://localhost:3000,http://localhost:5173
       SPORTYBET_BASE_URL: https://www.sportybet.com
       SPORTYBET_REGION: ng
