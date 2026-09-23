@@ -91,7 +91,7 @@ def test_selection_persists_across_service_instances(tmp_path):
 
     first.add(session.id, item)
 
-    second = SelectionService(database_url=database_url)
+    second = SelectionService(session_factory=sessionmaker(bind=engine, autoflush=False, expire_on_commit=False))
     restored = second.get_session(session.id)
 
     assert restored.selections[item.id] == item
