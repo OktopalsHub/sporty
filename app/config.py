@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     sportybet_timeout: float = 15.0
     sportybet_min_interval: float = 0.25
     sportybet_max_retries: int = 3
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-2.5-flash"
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    gemini_timeout: float = 30.0
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
