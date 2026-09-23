@@ -83,7 +83,7 @@ async def test_build_sends_exact_selected_provider_ids() -> None:
 
     result = await builder.build(session.id)
 
-    assert result.selection_count if hasattr(result, "selection_count") else len(result.selections)
+    assert len(result.selections) == 1
     assert result.selections == (selected,)
     assert provider.sent == [
         {
