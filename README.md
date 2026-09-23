@@ -207,3 +207,40 @@ Production deployment should use FastAPI Cloud with the following external servi
 - Logfire
 
 The application remains responsible for API routes, background jobs, migrations, and business logic.
+
+## Phase 19 production database
+
+The production database is PostgreSQL hosted by Neon. The application still uses SQLAlchemy, psycopg, and Alembic, so no Neon-specific ORM layer is required.
+
+Set `DATABASE_URL` to the Neon connection string. Prefer Neon's pooled connection string for the API and worker when the deployment can create multiple application instances. Keep the `sslmode=require` parameter from the Neon connection string.
+
+Production database settings are configurable through:
+
+- `DATABASE_POOL_SIZE`
+- `DATABASE_MAX_OVERFLOW`
+- `DATABASE_POOL_TIMEOUT`
+- `DATABASE_POOL_RECYCLE`
+- `DATABASE_CONNECT_TIMEOUT`
+
+The defaults are intentionally conservative for autoscaling deployments. Each API or worker instance has its own connection pool, so increasing pool sizes also increases the possible number of PostgreSQL connections.
+
+Example:
+
+```env
+DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST/DBNAME?sslmode=require
+DATABASE_POOL_SIZE=5
+DATABASE_MAX_OVERFLOW=5
+DATABASE_POOL_TIMEOUT=30
+DATABASE_POOL_RECYCLE=300
+DATABASE_CONNECT_TIMEOUT=10
+```
+
+Apply schema changes with Alembic:
+
+```bash
+alembic upgrade head
+```
+
+Do not put the Neon password or connection string in the repository. Store `DATABASE_URL` as a FastAPI Cloud secret.
+
+Local Docker development continues to use the local PostgreSQL service. Neon is the production database provider, not a required local dependency.
