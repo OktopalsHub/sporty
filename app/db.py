@@ -16,9 +16,12 @@ def _engine_kwargs(database_url: str) -> dict:
         return {"connect_args": {"check_same_thread": False}}
     return {
         "pool_pre_ping": True,
+        "pool_use_lifo": True,
+        "pool_recycle": settings.database_pool_recycle,
         "pool_size": settings.database_pool_size,
         "max_overflow": settings.database_max_overflow,
         "pool_timeout": settings.database_pool_timeout,
+        "connect_args": {"connect_timeout": settings.database_connect_timeout},
     }
 
 
