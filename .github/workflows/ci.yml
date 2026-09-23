@@ -23,6 +23,15 @@ jobs:
           --health-interval=5s
           --health-timeout=5s
           --health-retries=20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
 
     steps:
       - name: Checkout
@@ -43,6 +52,7 @@ jobs:
       - name: Test
         env:
           DATABASE_URL: postgresql+psycopg://sporty:sporty@127.0.0.1:5432/sporty
+          REDIS_URL: redis://127.0.0.1:6379/0
         run: pytest --cov=app --cov-report=term-missing
 
       - name: Apply PostgreSQL migrations
