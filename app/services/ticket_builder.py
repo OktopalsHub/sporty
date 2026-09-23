@@ -7,6 +7,7 @@ from typing import Any
 from app.domain.predictions import Prediction
 from app.providers.sportybet.client import SportyBetClient, SportyBetError
 from app.services.selection_service import SelectionNotFoundError, SelectionService
+from app.services.ticket_history_service import TicketHistoryService
 
 
 class TicketBuildError(ValueError):
@@ -33,9 +34,11 @@ class TicketBuilder:
         self,
         selection_service: SelectionService,
         provider: SportyBetClient,
+        history_service: TicketHistoryService | None = None,
     ) -> None:
         self.selection_service = selection_service
         self.provider = provider
+        self.history_service = history_service
 
     async def build(self, session_id: str) -> TicketBuildResult:
         try:
@@ -64,6 +67,14 @@ class TicketBuilder:
                 for selection in selections
             ]
         )
+
+        if self.history_service is not None:
+            self.history_service.record(
+                session_id=session_id,
+                combined_odds=combined_odds.quantize(Decimal("0.01")),
+                selection_count=len(selections),
+                provider_response=provider_response,
+            )
 
         return TicketBuildResult(
             session_id=session_id,
