@@ -50,9 +50,6 @@ class SelectionService:
                 autocommit=False,
                 expire_on_commit=False,
             )
-            from app.db import Base
-            from app import models  # noqa: F401
-            Base.metadata.create_all(bind=db_engine)
         self._lock = Lock()
 
     def create_session(self) -> SelectionSession:
