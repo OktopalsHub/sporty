@@ -9,6 +9,8 @@ def test_postgres_engine_uses_pool_settings() -> None:
         assert engine.pool._max_overflow == 20
         assert engine.pool._timeout == 30
         assert engine.pool._pre_ping is True
+        assert engine.pool._recycle == 300
+        assert engine.pool._use_lifo is True
     finally:
         engine.dispose()
 
