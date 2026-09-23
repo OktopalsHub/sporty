@@ -53,7 +53,6 @@ class TicketBuilder:
         selections = await self._validate_current_selections(selections)
 
         combined_odds = Decimal("1")
-        refreshed: list[Prediction] = []
         for selection in selections:
             combined_odds *= selection.odds
 
@@ -88,6 +87,7 @@ class TicketBuilder:
         self,
         selections: tuple[Prediction, ...],
     ) -> tuple[Prediction, ...]:
+        refreshed: list[Prediction] = []
         for selection in selections:
             try:
                 event = await self.provider.get_event_markets(selection.event_id)
