@@ -1,5 +1,9 @@
 import logfire
 
+from app.observability import configure_logfire
+
+configure_logfire()
+
 JOB_COMPLETED = logfire.metric_counter(
     "sporty.jobs.completed",
     unit="1",
