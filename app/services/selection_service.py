@@ -1,10 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from decimal import Decimal
 from threading import Lock
 from uuid import uuid4
 
-from app.domain.predictions import Prediction
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
+from app.db import _engine_kwargs
+from app.domain.markets import Market
+from app.domain.predictions import Confidence, Prediction
+from app.models import SelectionModel, SelectionSessionModel
 
 
 class SelectionNotFoundError(KeyError):
@@ -22,72 +30,158 @@ class SelectionSession:
 
 
 class SelectionService:
-    """Stores the exact predictions selected by a user for the current session.
+    """Persists exact user selections in the database."""
 
-    Persistence is intentionally deferred to the database phase. Until then,
-    selections live in process memory and are lost when the API restarts.
-    """
+    def __init__(
+        self,
+        database_url: str | None = None,
+        session_factory: sessionmaker[Session] | None = None,
+    ) -> None:
+        if session_factory is not None:
+            self._session_factory = session_factory
+        else:
+            from app.config import get_settings
 
-    def __init__(self) -> None:
-        self._sessions: dict[str, SelectionSession] = {}
+            url = database_url or get_settings().database_url
+            db_engine = create_engine(url, future=True, **_engine_kwargs(url))
+            self._session_factory = sessionmaker(
+                bind=db_engine,
+                autoflush=False,
+                autocommit=False,
+                expire_on_commit=False,
+            )
         self._lock = Lock()
 
     def create_session(self) -> SelectionSession:
-        session = SelectionSession(id=str(uuid4()), selections={})
-        with self._lock:
-            self._sessions[session.id] = session
-        return session
+        now = datetime.now(timezone.utc)
+        session = SelectionSessionModel(
+            id=str(uuid4()),
+            created_at=now,
+            updated_at=now,
+        )
+        with self._session_factory() as db:
+            db.add(session)
+            db.commit()
+            return SelectionSession(id=session.id, selections={})
 
     def get_session(self, session_id: str) -> SelectionSession:
-        with self._lock:
-            session = self._sessions.get(session_id)
+        with self._session_factory() as db:
+            session = db.get(SelectionSessionModel, session_id)
             if session is None:
                 raise SelectionNotFoundError(session_id)
-            return session
+            return SelectionSession(
+                id=session.id,
+                selections={item.id: self._to_prediction(item) for item in session.selections},
+            )
 
     def add(self, session_id: str, prediction: Prediction) -> SelectionSession:
-        with self._lock:
-            session = self._sessions.get(session_id)
+        with self._lock, self._session_factory() as db:
+            session = db.get(SelectionSessionModel, session_id)
             if session is None:
                 raise SelectionNotFoundError(session_id)
 
-            existing = next(
-                (
-                    item
-                    for item in session.selections.values()
-                    if item.event_id == prediction.event_id and item.id != prediction.id
-                ),
-                None,
+            existing = (
+                db.query(SelectionModel)
+                .filter(
+                    SelectionModel.session_id == session_id,
+                    SelectionModel.event_id == prediction.event_id,
+                    SelectionModel.id != prediction.id,
+                )
+                .first()
             )
             if existing is not None:
                 raise SelectionConflictError(
                     f"Event {prediction.event_id} already has selection {existing.id}"
                 )
 
-            session.selections[prediction.id] = prediction
-            return session
+            item = db.get(SelectionModel, prediction.id)
+            now = datetime.now(timezone.utc)
+            if item is None:
+                db.add(self._to_model(session_id, prediction, now))
+            elif item.session_id != session_id:
+                raise SelectionConflictError(
+                    f"Selection {prediction.id} already belongs to another session"
+                )
+            else:
+                item.updated_at = now
+
+            session.updated_at = now
+            db.commit()
+            return self.get_session(session_id)
 
     def remove(self, session_id: str, prediction_id: str) -> SelectionSession:
-        with self._lock:
-            session = self._sessions.get(session_id)
+        with self._lock, self._session_factory() as db:
+            session = db.get(SelectionSessionModel, session_id)
             if session is None:
                 raise SelectionNotFoundError(session_id)
-            if prediction_id not in session.selections:
+
+            item = db.get(SelectionModel, prediction_id)
+            if item is None or item.session_id != session_id:
                 raise SelectionNotFoundError(prediction_id)
 
-            del session.selections[prediction_id]
-            return session
+            db.delete(item)
+            session.updated_at = datetime.now(timezone.utc)
+            db.commit()
+            return self.get_session(session_id)
 
     def clear(self, session_id: str) -> SelectionSession:
-        with self._lock:
-            session = self._sessions.get(session_id)
+        with self._lock, self._session_factory() as db:
+            session = db.get(SelectionSessionModel, session_id)
             if session is None:
                 raise SelectionNotFoundError(session_id)
-            session.selections.clear()
-            return session
+
+            db.query(SelectionModel).filter(
+                SelectionModel.session_id == session_id
+            ).delete(synchronize_session=False)
+            session.updated_at = datetime.now(timezone.utc)
+            db.commit()
+            return SelectionSession(id=session_id, selections={})
 
     def delete_session(self, session_id: str) -> None:
-        with self._lock:
-            if session_id not in self._sessions:
+        with self._lock, self._session_factory() as db:
+            session = db.get(SelectionSessionModel, session_id)
+            if session is None:
                 raise SelectionNotFoundError(session_id)
-            del self._sessions[session_id]
+            db.delete(session)
+            db.commit()
+
+    @staticmethod
+    def _to_model(session_id: str, prediction: Prediction, now: datetime) -> SelectionModel:
+        return SelectionModel(
+            id=prediction.id,
+            session_id=session_id,
+            event_id=prediction.event_id,
+            start_time=prediction.start_time,
+            home_team=prediction.home_team,
+            away_team=prediction.away_team,
+            market=prediction.market.value,
+            market_id=prediction.market_id,
+            specifier=prediction.specifier,
+            outcome_id=prediction.outcome_id,
+            selection=prediction.selection,
+            odds=prediction.odds,
+            probability=prediction.probability,
+            confidence=prediction.confidence.value,
+            reasons=list(prediction.reasons),
+            created_at=now,
+            updated_at=now,
+        )
+
+    @staticmethod
+    def _to_prediction(item: SelectionModel) -> Prediction:
+        return Prediction(
+            id=item.id,
+            event_id=item.event_id,
+            home_team=item.home_team,
+            away_team=item.away_team,
+            start_time=item.start_time,
+            market=Market(item.market),
+            market_id=item.market_id,
+            specifier=item.specifier,
+            outcome_id=item.outcome_id,
+            selection=item.selection,
+            odds=Decimal(item.odds),
+            probability=item.probability,
+            confidence=Confidence(item.confidence),
+            reasons=tuple(item.reasons or ()),
+        )
