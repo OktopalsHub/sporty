@@ -17,7 +17,8 @@ RUN pip install --upgrade pip \
     && chown -R appuser:appuser /app /home/appuser
 
 COPY docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+COPY docker/worker-entrypoint.sh /worker-entrypoint.sh
+RUN chmod +x /entrypoint.sh /worker-entrypoint.sh
 
 USER appuser
 
