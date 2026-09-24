@@ -102,7 +102,7 @@ async function generate(strategy){
     selected=new Map(predictions.map(p=>[p.id,p]));
     render();
     setGenerationProgress(false);
-    setStatus("Generated "+predictions.length+" selections for target odds "+data.actual_odds+".");
+    setStatus("Generated "+predictions.length+" selections: target "+data.target_odds+", actual odds "+data.actual_odds+".");
   }catch(e){setGenerationProgress(false);setStatus(e.message,true)}
 }
 function render(){
