@@ -3,7 +3,6 @@ from decimal import Decimal
 
 from app.domain.markets import Market
 from app.domain.provider import ProviderOutcome
-from app.providers.sportybet.client import SportyBetClient
 from app.providers.sportybet.parse_client import ParseSportyBetClient
 from app.services.prediction_service import PredictionService
 
