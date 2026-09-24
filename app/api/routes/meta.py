@@ -47,22 +47,10 @@ async def get_app_meta() -> AppMetaResponse:
         ],
         strategies=[
             StrategyMeta(
-                id="1k",
-                label="1K Odds",
-                target_odds="1000",
-                description="Build an accumulator targeting at least 1,000 combined odds.",
+                id="custom",
+                label="Build ticket",
+                target_odds=None,
+                description="Build a ticket to any target odds using Over 2.5, BTTS, Under 2.5 and Under 4.5.",
             ),
-            StrategyMeta(
-                id="5k_random",
-                label="5K Random",
-                target_odds="5000",
-                description="Build a randomized accumulator targeting at least 5,000 combined odds.",
-            ),
-            StrategyMeta(
-                id="weekly_safe",
-                label="Weekly Safe",
-                target_odds="10000",
-                description="Build a weekly high-confidence accumulator targeting at least 10,000 combined odds.",
-            ),
-        ],
+        ]
     )
