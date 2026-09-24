@@ -27,10 +27,10 @@ class SportyBetClient:
 
     def __init__(
         self,
-        base_url: str = "https://www.sportybet.com",
-        region: str = "ng",
-        timeout: float = 15.0,
-        min_interval: float = 0.25,
+        base_url: str | None = None,
+        region: str | None = None,
+        timeout: float | None = None,
+        min_interval: float | None = None,
         max_retries: int | None = None,
         provider: str | None = None,
         parse_api_key: str | None = None,
