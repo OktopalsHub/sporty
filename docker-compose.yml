@@ -37,6 +37,8 @@ services:
       DATABASE_CONNECT_TIMEOUT: 10
       REDIS_URL: redis://redis:6379/0
       REDIS_TIMEOUT: 1.0
+      REDIS_MAX_CONNECTIONS: 10
+      REDIS_HEALTH_CHECK_INTERVAL: 30
       SPORTYBET_BASE_URL: https://www.sportybet.com
       SPORTYBET_REGION: ng
     depends_on:
@@ -58,6 +60,8 @@ services:
       DATABASE_CONNECT_TIMEOUT: 10
       REDIS_URL: redis://redis:6379/0
       REDIS_TIMEOUT: 1.0
+      REDIS_MAX_CONNECTIONS: 10
+      REDIS_HEALTH_CHECK_INTERVAL: 30
       RATE_LIMIT_REQUESTS: 120
       RATE_LIMIT_WINDOW_SECONDS: 60
       API_KEY:
