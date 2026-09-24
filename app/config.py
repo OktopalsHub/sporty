@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     database_pool_recycle: int = 300
     database_connect_timeout: int = 10
     redis_url: str = "redis://localhost:6379/0"
-    redis_timeout: float = 1.0
+    redis_timeout: float = 5.0
     redis_max_connections: int = 20
     redis_health_check_interval: int = 30
     rate_limit_requests: int = 120
