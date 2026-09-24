@@ -25,6 +25,25 @@ services:
       timeout: 3s
       retries: 20
 
+  worker:
+    build: .
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+psycopg://sporty:sporty@db:5432/sporty
+      DATABASE_POOL_SIZE: 5
+      DATABASE_MAX_OVERFLOW: 10
+      DATABASE_POOL_TIMEOUT: 30
+      REDIS_URL: redis://redis:6379/0
+      REDIS_TIMEOUT: 1.0
+      SPORTYBET_BASE_URL: https://www.sportybet.com
+      SPORTYBET_REGION: ng
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    entrypoint: ["/worker-entrypoint.sh"]
+
   api:
     build: .
     environment:

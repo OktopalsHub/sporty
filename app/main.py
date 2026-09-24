@@ -10,6 +10,7 @@ from app.api.routes.five_k import router as five_k_router
 from app.api.routes.generators import router as generators_router
 from app.api.routes.health import router as health_router
 from app.api.routes.history import router as history_router
+from app.api.routes.jobs import router as jobs_router
 from app.api.routes.meta import router as meta_router
 from app.api.routes.one_k import router as one_k_router
 from app.api.routes.predictions import router as predictions_router
@@ -119,6 +120,7 @@ app.include_router(predictions_router, prefix=settings.api_prefix)
 app.include_router(selections_router, prefix=settings.api_prefix)
 app.include_router(tickets_router, prefix=settings.api_prefix)
 app.include_router(history_router, prefix=settings.api_prefix)
+app.include_router(jobs_router, prefix=settings.api_prefix)
 app.include_router(meta_router, prefix=settings.api_prefix)
 app.include_router(analysis_router, prefix=settings.api_prefix)
 app.include_router(generators_router, prefix=settings.api_prefix)
