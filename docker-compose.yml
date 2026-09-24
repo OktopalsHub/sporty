@@ -1,0 +1,46 @@
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: sporty
+      MYSQL_USER: sporty
+      MYSQL_PASSWORD: sporty
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - sporty_mysql:/var/lib/mysql
+
+  api:
+    build: .
+    environment:
+      APP_ENV: production
+      DATABASE_URL: mysql+pymysql://sporty:sporty@db:3306/sporty
+      FRONTEND_ORIGINS: http://localhost:3000,http://localhost:5173
+      SPORTYBET_BASE_URL: https://www.sportybet.com
+      SPORTYBET_REGION: ng
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  sporty_mysql:

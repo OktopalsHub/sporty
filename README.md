@@ -6,6 +6,26 @@ AI-powered football prediction and SportyBet ticket builder.
 
 FastAPI backend with isolated provider adapters, prediction strategies, ticket generation, and persistent selection history.
 
+Install development dependencies:
+
+```bash
+pip install -e ".[dev]"
+```
+
+Run the API locally:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Run quality checks:
+
+```bash
+ruff check .
+pytest
+pytest --cov=app --cov-report=term-missing
+```
+
 ## Database
 
 The application uses SQLAlchemy.
@@ -22,36 +42,16 @@ For MySQL:
 DATABASE_URL=mysql+pymysql://user:password@host:3306/sporty
 ```
 
-Database tables are initialized when the application starts.
-
-## Phase 11 endpoints
-
-- `POST /api/v1/selections/sessions` creates a persistent selection session.
-- `GET /api/v1/selections/sessions/{session_id}` restores selections from the database.
-- `POST /api/v1/tickets/{session_id}/build` builds the exact selected ticket and records a successful build.
-- `GET /api/v1/history/tickets/{session_id}` returns previous successful ticket builds for a session.
-
-
-## Database migrations
-
-Phase 12 uses Alembic for schema management. The application no longer creates tables automatically at startup.
-
-After installing dependencies, run:
+The application does not create tables automatically at startup. Use Alembic to apply the schema before starting the API:
 
 ```bash
 alembic upgrade head
 ```
 
-If you already have a Phase 11 database created with `create_all`, verify that its schema is current and then mark the initial migration as applied instead of recreating the tables:
+If you already have a Phase 11 database created with `create_all`, verify that its schema matches the migration and then mark the initial migration as applied:
 
 ```bash
 alembic stamp 0001_initial
-```
-
-For MySQL, set `DATABASE_URL` first:
-
-```env
-DATABASE_URL=mysql+pymysql://user:password@host:3306/sporty
 ```
 
 Create a new migration after changing SQLAlchemy models:
@@ -61,10 +61,30 @@ alembic revision --autogenerate -m "describe change"
 alembic upgrade head
 ```
 
-The API exposes `GET /api/v1/health` for liveness and `GET /api/v1/ready` for database readiness.
+## API health
 
-Every API response includes an `X-Request-ID` header. Clients may send their own request ID for tracing.
+- `GET /api/v1/health` is the liveness check. It does not require the database.
+- `GET /api/v1/ready` is the readiness check. It verifies database connectivity.
+- Every API response includes an `X-Request-ID` header. Clients may send their own request ID for tracing.
 
+## Docker
+
+Build and run the production-like image:
+
+```bash
+docker build -t sporty .
+docker run --rm -p 8000:8000 \
+  -e DATABASE_URL=sqlite:///./sporty.db \
+  sporty
+```
+
+For a MySQL-backed local stack:
+
+```bash
+docker compose up --build
+```
+
+The container entrypoint runs `alembic upgrade head` before starting Uvicorn. Production deployments should use the same migration-first pattern and provide secrets through the deployment environment, not the image.
 
 ## Phase 13 frontend integration contract
 
@@ -110,3 +130,9 @@ FRONTEND_ORIGINS=http://localhost:3000,http://localhost:5173
 ```
 
 FastAPI OpenAPI is available at `/docs` and `/openapi.json` for frontend client generation.
+
+## CI
+
+GitHub Actions runs on pushes and pull requests. It installs the development dependencies, runs Ruff, runs the test suite with coverage, and applies the Alembic migrations against SQLite.
+
+The CI workflow is the minimum merge gate. A deployment should also run the same migration command against the target database before serving traffic.
