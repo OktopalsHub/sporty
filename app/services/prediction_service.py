@@ -60,10 +60,7 @@ class PredictionService:
         return self._deduplicate(predictions)
 
     def generate_all(self, events: list[ProviderEvent]) -> list[Prediction]:
-        predictions: list[Prediction] = []
-        for market in Market:
-            predictions.extend(self.generate(events, market))
-        return self._deduplicate(predictions)
+        return self.generate_all_available(events)
 
     def _from_market(
         self,
