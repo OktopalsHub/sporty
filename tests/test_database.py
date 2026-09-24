@@ -22,3 +22,13 @@ def test_sqlite_engine_keeps_thread_check() -> None:
         assert engine.url.get_backend_name() == "sqlite"
     finally:
         engine.dispose()
+
+
+def test_bare_postgresql_url_uses_psycopg_driver() -> None:
+    engine = create_database_engine("postgresql://user:password@localhost:5432/test")
+
+    try:
+        assert engine.url.get_backend_name() == "postgresql"
+        assert engine.url.drivername == "postgresql+psycopg"
+    finally:
+        engine.dispose()

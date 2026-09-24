@@ -1,6 +1,20 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def normalize_database_url(url: str) -> str:
+    """Force the psycopg3 driver.
+
+    A bare ``postgres://``/``postgresql://`` URL makes SQLAlchemy pick the
+    psycopg2 dialect, and psycopg2 is not installed (only ``psycopg[binary]``).
+    """
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg://" + url.removeprefix("postgres://")
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url.removeprefix("postgresql://")
+    return url
 
 
 class Settings(BaseSettings):
@@ -36,6 +50,11 @@ class Settings(BaseSettings):
     frontend_origins: str = "http://localhost:3000,http://localhost:5173"
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
+
+    @field_validator("database_url", mode="after")
+    @classmethod
+    def _force_psycopg_driver(cls, value: str) -> str:
+        return normalize_database_url(value)
 
     def validate_production(self) -> None:
         if self.app_env.lower() != "production":

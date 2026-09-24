@@ -3,7 +3,7 @@ from collections.abc import Generator
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from app.config import get_settings
+from app.config import get_settings, normalize_database_url
 
 
 class Base(DeclarativeBase):
@@ -26,7 +26,7 @@ def _engine_kwargs(database_url: str) -> dict:
 
 
 def create_database_engine(database_url: str | None = None):
-    url = database_url or get_settings().database_url
+    url = normalize_database_url(database_url or get_settings().database_url)
     return create_engine(url, future=True, **_engine_kwargs(url))
 
 
