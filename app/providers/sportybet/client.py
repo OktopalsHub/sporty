@@ -8,6 +8,7 @@ from typing import Any
 
 import httpx
 
+from app.config import get_settings
 from app.domain.provider import ProviderEvent, ProviderMarket, ProviderOutcome
 
 
@@ -36,6 +37,10 @@ class SportyBetClient:
         self.timeout = timeout
         self.min_interval = min_interval
         self.max_retries = max_retries
+        self._parse_client = None
+        if get_settings().sportybet_provider.lower() == "parse":
+            from app.providers.sportybet.parse_client import ParseSportyBetClient
+            self._parse_client = ParseSportyBetClient()
         self._last_request = 0.0
         self._lock = asyncio.Lock()
 
@@ -93,6 +98,14 @@ class SportyBetClient:
         hours: int = 168,
         market_ids: str | None = None,
     ) -> tuple[list[ProviderEvent], int]:
+        if self._parse_client is not None:
+            return await self._parse_client.get_upcoming_events(
+                page=page,
+                page_size=page_size,
+                hours=hours,
+                market_ids=market_ids,
+            )
+
         params: dict[str, Any] = {
             "sportId": "sr:sport:1",
             "pageNum": page,
@@ -120,6 +133,9 @@ class SportyBetClient:
         return events, int(data.get("totalNum") or len(events))
 
     async def get_event_markets(self, event_id: str) -> ProviderEvent:
+        if self._parse_client is not None:
+            return await self._parse_client.get_event_markets(event_id)
+
         events, _ = await self.get_upcoming_events(page=1, page_size=100)
         for event in events:
             if event.id == event_id:
@@ -127,6 +143,9 @@ class SportyBetClient:
         raise SportyBetError(f"Event {event_id} was not found in the current feed")
 
     async def create_booking(self, selections: list[dict[str, str | None]]) -> dict[str, Any]:
+        if self._parse_client is not None:
+            return await self._parse_client.create_booking(selections)
+
         payload = {
             "selections": [
                 {
