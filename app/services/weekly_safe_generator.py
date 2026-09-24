@@ -154,9 +154,11 @@ class WeeklySafeGenerator:
 
     @staticmethod
     def _score(state: _State) -> float:
+        if not state.selections:
+            return 0.0
         average_probability = state.probability_sum / len(state.selections)
         return average_probability + (len(state.days) * 0.01)
-    
+
     @staticmethod
     def _prune(states: list[_State]) -> list[_State]:
         deduped: dict[tuple[frozenset[str], frozenset[date]], _State] = {}
