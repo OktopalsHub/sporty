@@ -180,6 +180,7 @@ app.include_router(weekly_safe_router, prefix=settings.api_prefix)
 
 @app.get("/", include_in_schema=False)
 async def root() -> FileResponse:
+    """Serve the Sporty web interface at the application root."""
     return FileResponse(
         Path(__file__).parent / "ui" / "index.html",
         media_type="text/html",
