@@ -244,3 +244,124 @@ alembic upgrade head
 Do not put the Neon password or connection string in the repository. Store `DATABASE_URL` as a FastAPI Cloud secret.
 
 Local Docker development continues to use the local PostgreSQL service. Neon is the production database provider, not a required local dependency.
+
+
+## Phase 20 managed Redis
+
+Production Redis is designed to use a managed Redis-compatible service. The application keeps the standard `redis-py` client and reads one `REDIS_URL`, so the provider can be changed without changing application code.
+
+For production, use the TLS connection URL supplied by the managed Redis provider:
+
+```env
+REDIS_URL=rediss://USERNAME:PASSWORD@HOST:PORT/0
+REDIS_TIMEOUT=5
+REDIS_MAX_CONNECTIONS=20
+REDIS_HEALTH_CHECK_INTERVAL=30
+```
+
+The `rediss://` scheme enables TLS in `redis-py`. Upstash Redis provides TLS TCP connection strings and is compatible with the Redis protocol, so it can be used without an application-specific adapter. citeturn2search0turn2search9
+
+Redis is shared by all API instances and the background worker for:
+
+- distributed rate limiting
+- the prediction job queue
+- job locks
+- short-lived application state
+
+Keep local Docker Redis for development. Do not commit managed Redis credentials.
+
+The Redis client uses connection pooling, TCP keepalive, and periodic health checks. The timeout is long enough for the worker's blocking queue read while still bounding connection and command failures.
+
+## Phase 21 FastAPI Cloud deployment
+
+Production API deployment targets FastAPI Cloud. FastAPI Cloud supports standard Python projects and can deploy this project with `fastapi deploy`. The project now declares the FastAPI CLI dependency and an explicit `app.main:app` entrypoint. citeturn1search5turn1search15
+
+Production flow:
+
+```text
+GitHub main
+   |
+   v
+GitHub Actions
+   |
+   +--> Alembic migrations -> Neon PostgreSQL
+   |
+   +--> fastapi deploy -> FastAPI Cloud
+   |
+   +--> API instances -> managed Redis
+   |
+   +--> Logfire
+```
+
+FastAPI Cloud can autoscale API instances, so the API must remain stateless. Database state lives in Neon and shared Redis state lives in the managed Redis service. citeturn3search4
+
+### Required FastAPI Cloud secrets
+
+Configure these repository secrets before enabling production deployment:
+
+- `FASTAPI_CLOUD_TOKEN`
+- `FASTAPI_CLOUD_APP_ID`
+- `DATABASE_URL`
+
+The deploy workflow applies Alembic migrations to the Neon database before deploying the new API version. FastAPI Cloud's CI deployment flow uses a deploy token and app ID from GitHub secrets. citeturn5search0
+
+### Required FastAPI Cloud environment variables
+
+Configure the runtime environment in FastAPI Cloud:
+
+```env
+APP_ENV=production
+DATABASE_URL=<Neon pooled connection string>
+DATABASE_POOL_SIZE=5
+DATABASE_MAX_OVERFLOW=5
+DATABASE_POOL_TIMEOUT=30
+DATABASE_POOL_RECYCLE=300
+DATABASE_CONNECT_TIMEOUT=10
+
+REDIS_URL=<managed Redis rediss:// URL>
+REDIS_TIMEOUT=5
+REDIS_MAX_CONNECTIONS=20
+REDIS_HEALTH_CHECK_INTERVAL=30
+
+API_KEY=<production API key>
+FRONTEND_ORIGINS=<allowed frontend origins>
+
+LOGFIRE_TOKEN=<Logfire token>
+LOGFIRE_SEND_TO_LOGFIRE=if-token-present
+LOGFIRE_SERVICE_NAME=Sporty
+LOGFIRE_SERVICE_VERSION=0.1.0
+LOGFIRE_ENVIRONMENT=production
+```
+
+Do not put production secrets in `.env.example`, Docker Compose, or the repository.
+
+### Background worker
+
+FastAPI Cloud deployment is for the HTTP API. The existing `app.job_worker` is a separate long-running process and should not be started inside every autoscaled API replica.
+
+The worker must run on a separate long-running worker service/container with the same:
+
+- `DATABASE_URL`
+- `REDIS_URL`
+- SportyBet configuration
+- Gemini configuration when required
+
+The local Docker Compose worker remains the reference implementation for this process. The managed Redis queue allows the API and worker to share jobs across hosts.
+
+This separation avoids creating one worker per autoscaled API replica and keeps the queue consumer independent from request-driven API scaling.
+
+### Deployment commands
+
+Local FastAPI Cloud deployment:
+
+```bash
+fastapi login
+fastapi deploy
+```
+
+CI deployment runs automatically on pushes to `main`. FastAPI Cloud also supports a generated CI setup through `fastapi cloud setup-ci`. citeturn5search1
+
+### Production migration rule
+
+Do not run `alembic upgrade head` from the API application startup. FastAPI Cloud uses rolling deployments and multiple replicas, so migrations are applied once by the deployment workflow before the new API version is deployed.
+
