@@ -1,12 +1,11 @@
 import secrets
-
-import logfire
 from uuid import uuid4
 
+import logfire
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.routes.analysis import router as analysis_router
 from app.api.routes.five_k import router as five_k_router
@@ -23,8 +22,8 @@ from app.api.routes.weekly_safe import router as weekly_safe_router
 from app.cache import get_redis
 from app.config import get_settings
 from app.db import engine
-from app.rate_limit import RedisRateLimiter
 from app.observability import configure_logfire
+from app.rate_limit import RedisRateLimiter
 
 settings = get_settings()
 settings.validate_production()
@@ -75,7 +74,7 @@ async def request_context(request: Request, call_next):
             f"{settings.api_prefix}/ready",
         }:
             supplied_key = request.headers.get("X-API-Key", "")
-            if not secrets.compare_digest(supplied_key, settings.api_key):
+            if not secrets.compare_digest(supplied_key, settings.api_key or ""):
                 response = JSONResponse(
                     status_code=401,
                     content={
@@ -144,6 +143,12 @@ async def request_context(request: Request, call_next):
         )
 
     response.headers["X-Request-ID"] = request_id
+    if settings.security_headers_enabled:
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
 
@@ -152,6 +157,7 @@ async def shutdown() -> None:
     from app.cache import close_redis
 
     await close_redis()
+    rate_limiter.redis = get_redis()
 
 
 app.include_router(health_router, prefix=settings.api_prefix)
