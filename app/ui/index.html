@@ -34,8 +34,8 @@
     <label for="apiKey">Production API key</label>
     <div class="controls">
       <input id="apiKey" type="password" autocomplete="off" placeholder="Enter your API key">
+      <div><label for="targetOdds">Target odds</label><input id="targetOdds" type="number" min="1.01" step="0.01" value="1000"></div>
       <div><label for="hours">Look ahead</label><select id="hours"><option value="24">24 hours</option><option value="72">3 days</option><option value="168" selected>7 days</option><option value="336">14 days</option></select></div>
-      <div><label for="pageSize">Games</label><select id="pageSize"><option selected>25</option></select></div>
       <button id="saveKey" class="secondary">Save key</button>
     </div>
     <div class="status" id="status">The API key is kept only in this browser session.</div><div class="progress" id="generationProgress"><div class="progress-head"><strong id="progressTitle">Generating...</strong><span id="progressTime">0s</span></div><div class="progress-bar"><div class="progress-fill"></div></div><div class="muted" id="progressDetail" style="margin-top:7px;font-size:12px">Starting provider request...</div></div>
@@ -48,7 +48,7 @@
 
   <section class="panel">
     <div class="top" style="margin-bottom:14px"><div><h2 style="margin:0">Generated selections</h2><div class="muted" id="summary">No selections yet.</div></div><div class="actions"><button id="clear" class="secondary">Clear</button><button id="build" disabled>Build ticket</button></div></div>
-    <div class="table-wrap"><table><thead><tr><th></th><th>Match</th><th>Market</th><th>Selection</th><th>Odds</th><th>Probability</th><th>Confidence</th></tr></thead><tbody id="results"><tr><td colspan="7" class="empty">Choose a strategy to generate predictions.</td></tr></tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th></th><th>Match</th><th>Market</th><th>Selection</th><th>Odds</th><th>Probability</th><th>Confidence</th></tr></thead><tbody id="results"><tr><td colspan="7" class="empty">Enter your target odds and generate a ticket from the priority markets.</td></tr></tbody></table></div>
   </section>
 
   <section class="panel" id="ticketPanel" hidden>
@@ -90,22 +90,19 @@ async function boot(){
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]))}
 async function generate(strategy){
   const token=++generationToken;
-  setGenerationProgress(true,"Generating "+strategy+"...","Fetching upcoming SportyBet fixtures and markets. This can take a little while.");
-  setStatus("Generation started for "+strategy+".");
+  const target=Number($("targetOdds").value);
+  if(!Number.isFinite(target)||target<=1){setStatus("Target odds must be greater than 1.",true);return}
+  setGenerationProgress(true,"Building "+target+" odds...","Fetching priority markets until a valid combination is found.");
+  setStatus("Generation started.");
   try{
-    const hours=$("hours").value,page_size=$("pageSize").value;
-    const paths={"1k":"/generators/1k/generate","5k_random":"/generators/5k/generate","weekly_safe":"/generators/weekly-safe/generate"};
-    const body={page:1,page_size:Number(page_size),hours:Number(hours)};
-    if(strategy==="5k_random") Object.assign(body,{min_probability:.55,candidate_pool_size:150,attempts:25});
-    if(strategy==="weekly_safe") Object.assign(body,{min_probability:.75,min_days:3,candidate_limit_per_day:40});
-    setGenerationProgress(true,"Generating "+strategy+"...","Sending request to the prediction provider...");
-    const data=await request(paths[strategy],{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const hours=Number($("hours").value);
+    const data=await request("/generators/custom/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target_odds:target,hours,markets:["over_2_5","btts","under_2_5","under_4_5"]})});
     if(token!==generationToken)return;
     predictions=data.selections||[];
     selected=new Map(predictions.map(p=>[p.id,p]));
     render();
     setGenerationProgress(false);
-    setStatus("Generated "+predictions.length+" selections. Review them before building the ticket.");
+    setStatus("Generated "+predictions.length+" selections for target odds "+data.actual_odds+".");
   }catch(e){setGenerationProgress(false);setStatus(e.message,true)}
 }
 function render(){

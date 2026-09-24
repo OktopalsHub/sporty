@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     trusted_hosts: str = "localhost,127.0.0.1,testserver,*.fastapicloud.dev"
     security_headers_enabled: bool = True
     rate_limit_fail_closed: bool = True
-    sportybet_provider: str = "direct"
+    sportybet_provider: str = "parse"
     sportybet_base_url: str = "https://www.sportybet.com"
     sportybet_region: str = "ng"
     sportybet_timeout: float = 15.0
