@@ -45,13 +45,13 @@ def test_generator_only_returns_requested_market() -> None:
 
 def test_generator_applies_probability_and_confidence_filters() -> None:
     predictions = [
-        make_prediction("1", Market.OVER_1_5, 0.80, Confidence.VERY_HIGH),
-        make_prediction("2", Market.OVER_1_5, 0.65, Confidence.MEDIUM),
+        make_prediction("1", Market.UNDER_4_5, 0.80, Confidence.VERY_HIGH),
+        make_prediction("2", Market.UNDER_4_5, 0.65, Confidence.MEDIUM),
     ]
 
     result = MarketGenerator().generate(
         predictions,
-        Market.OVER_1_5,
+        Market.UNDER_4_5,
         min_probability=0.75,
         confidence={Confidence.VERY_HIGH},
     )
