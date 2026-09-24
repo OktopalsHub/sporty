@@ -427,3 +427,19 @@ The GitHub Actions load test is manual. Open the **Load test** workflow and set 
 Track p50, p95, p99 latency, throughput, failure rate, PostgreSQL connections, Redis connections, queue depth, worker duration, retries, and failed jobs. The suggested test sizes are smoke (5 users), baseline (25), sustained (100), and spike (250). These are test inputs, not production SLOs.
 
 Business endpoint load tests should use a staging feed or mocked SportyBet provider. Do not run high-volume generator tests against production.
+
+## Phase 25 release automation
+
+Production deployment is now gated by the `CI` workflow on `main`.
+
+The deployment workflow:
+
+- waits for a successful CI run before automatic deployment;
+- deploys the exact commit that passed CI;
+- applies Neon migrations before the FastAPI Cloud deployment;
+- prevents overlapping production deployments;
+- validates `DATABASE_URL`, `FASTAPI_CLOUD_TOKEN`, and `FASTAPI_CLOUD_APP_ID` before deployment;
+- runs inside the GitHub `production` environment;
+- keeps manual deployment available through `workflow_dispatch`.
+
+Configure the `production` environment and its deployment secrets before enabling production releases. See `docs/phase-25-release-automation.md` for the release checklist.
