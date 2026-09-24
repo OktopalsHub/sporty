@@ -41,7 +41,11 @@ class SportyBetClient:
         self.base_url = (base_url or settings.sportybet_base_url).rstrip("/")
         self.region = (region or settings.sportybet_region).lower()
         self.timeout = timeout if timeout is not None else settings.sportybet_timeout
-        self.min_interval = min_interval if min_interval is not None else settings.sportybet_min_interval
+        self.min_interval = (
+        self.max_retries = (
+            max_retries if max_retries is not None else settings.sportybet_max_retries
+        )
+        )
         self.max_retries = max_retries if max_retries is not None else settings.sportybet_max_retries
         self.parse_api_key = parse_api_key or settings.parse_api_key
         self.parse_base_url = (parse_base_url or settings.parse_api_base_url).rstrip("/")
@@ -92,7 +96,9 @@ class SportyBetClient:
                 except (httpx.HTTPError, ValueError, SportyBetError) as exc:
                     last_error = exc
                     if attempt < self.max_retries and not isinstance(exc, SportyBetError):
-                        await asyncio.sleep(0.5 * (2**attempt))
+            raise SportyBetError(
+                f"SportyBet request failed: {last_error or 'unknown error'}"
+            ) from last_error
                         continue
                     break
 
@@ -107,7 +113,11 @@ class SportyBetClient:
             if wait > 0:
                 await asyncio.sleep(wait)
             last_error: Exception | None = None
-            for attempt in range(self.max_retries + 1):
+                            headers={
+                                "Accept": "application/json",
+                                "Content-Type": "application/json",
+                                "X-API-Key": self.parse_api_key,
+                            },
                 try:
                     async with httpx.AsyncClient(timeout=self.timeout) as client:
                         response = await client.request(
@@ -116,14 +126,20 @@ class SportyBetClient:
                             headers={"Accept": "application/json", "Content-Type": "application/json", "X-API-Key": self.parse_api_key},
                             **kwargs,
                         )
-                    self._last_request = time.monotonic()
+                        raise SportyBetError(
+                            str(
+                                payload.get("message") or "Parse provider returned an error"
+                            )
+                        )
                     if response.status_code == 429 or response.status_code >= 500:
                         if attempt < self.max_retries:
                             await asyncio.sleep(0.5 * (2**attempt))
                             continue
                     response.raise_for_status()
                     payload = response.json()
-                    if not isinstance(payload, dict):
+            raise SportyBetError(
+                f"Parse SportyBet request failed: {last_error or 'unknown error'}"
+            ) from last_error
                         raise SportyBetError("Parse provider returned invalid JSON")
                     if payload.get("status") == "error":
                         raise SportyBetError(str(payload.get("message") or "Parse provider returned an error"))
@@ -132,7 +148,11 @@ class SportyBetClient:
                     last_error = exc
                     break
                 except (httpx.HTTPError, ValueError) as exc:
-                    last_error = exc
+            params: dict[str, Any] = {
+                "page": page,
+                "page_size": min(page_size, 100),
+                "hours": hours,
+            }
                     if attempt < self.max_retries:
                         await asyncio.sleep(0.5 * (2**attempt))
                         continue
@@ -163,7 +183,11 @@ class SportyBetClient:
             "timeline": hours,
             "_t": int(time.time() * 1000),
         }
-        if market_ids:
+            payload = await self._request(
+                "GET",
+                "get_football_event_markets",
+                params={"event_id": event_id},
+            )
             params["marketId"] = market_ids
 
         payload = await self._request(
@@ -199,7 +223,9 @@ class SportyBetClient:
         if self.provider == "parse":
             payload = {"selections": json.dumps([
                 {
-                    "eventId": item["event_id"],
+    def _normalize_parse_outcomes(
+        outcomes: list[dict[str, Any]],
+    ) -> tuple[list[ProviderEvent], int]:
                     "marketId": item["market_id"],
                     **({"specifier": item["specifier"]} if item.get("specifier") else {}),
                     "outcomeId": item["outcome_id"],
@@ -209,7 +235,9 @@ class SportyBetClient:
             return await self._request("POST", "book_bet", json=payload)
 
         payload = {
-            "selections": [
+                "start_time": SportyBetClient._parse_start_time(
+                    raw.get("estimateStartTime") or raw.get("kickoffTime")
+                ),
                 {
                     "eventId": item["event_id"],
                     "marketId": item["market_id"],
@@ -217,7 +245,10 @@ class SportyBetClient:
                     "outcomeId": item["outcome_id"],
                 }
                 for item in selections
-            ]
+            market = event["markets"].setdefault(
+                key,
+                {"description": str(raw.get("marketDesc") or ""), "outcomes": []},
+            )
         }
         return await self._request("POST", f"/api/{self.region}/orders/share", json=payload)
 
@@ -228,11 +259,17 @@ class SportyBetClient:
         for raw in outcomes:
             event_id = raw.get("eventId")
             if event_id is None:
-                continue
+                    active=(
+                        str(raw_event["status"]).lower()
+                        not in {"closed", "finished", "cancelled", "suspended"},
+                    ),
             event_id = str(event_id)
             event = grouped.setdefault(event_id, {
                 "tournament_id": raw.get("tournamentId"),
-                "tournament_name": raw.get("tournament"),
+                tournament_id=(
+                    str(raw_event["tournament_id"])
+                    if raw_event["tournament_id"] is not None else None
+                ),
                 "home_team": str(raw.get("homeTeamName") or ""),
                 "away_team": str(raw.get("awayTeamName") or ""),
                 "start_time": SportyBetClient._parse_start_time(raw.get("estimateStartTime") or raw.get("kickoffTime")),
