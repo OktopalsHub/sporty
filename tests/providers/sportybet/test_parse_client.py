@@ -3,12 +3,12 @@ from decimal import Decimal
 
 from app.domain.markets import Market
 from app.domain.provider import ProviderOutcome
-from app.providers.sportybet.client import SportyBetClient
+from app.providers.sportybet.parse_client import ParseSportyBetClient
 from app.services.prediction_service import PredictionService
 
 
 def test_parse_outcomes_are_grouped_into_provider_events():
-    events, total = SportyBetClient._normalize_parse_outcomes(
+    events, total = ParseSportyBetClient._normalize_outcomes(
         [
             {
                 "eventId": "sr:match:1",
@@ -91,7 +91,7 @@ def test_parse_total_market_only_returns_requested_outcome():
 
 
 def test_parse_start_time_supports_epoch_milliseconds():
-    value = SportyBetClient._parse_start_time(1788202800000)
+    value = ParseSportyBetClient._parse_time(1788202800000)
 
     assert value.tzinfo == timezone.utc
     assert value > datetime(2026, 1, 1, tzinfo=timezone.utc)
