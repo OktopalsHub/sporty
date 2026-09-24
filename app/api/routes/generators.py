@@ -104,9 +104,9 @@ async def generate_under_2_5(request: GeneratorRequest) -> GeneratorResponse:
     return await _generate(Market.UNDER_2_5, request)
 
 
-@router.post("/under-4-5/generate", response_model=GeneratorResponse)
+@router.post("/over-1-5/generate", response_model=GeneratorResponse)
 async def generate_under_4_5(request: GeneratorRequest) -> GeneratorResponse:
-    return await _generate(Market.UNDER_4_5, request)
+    return await _generate(Market.OVER_1_5, request)
 
 
 class CustomGeneratorRequest(BaseModel):
@@ -117,7 +117,7 @@ class CustomGeneratorRequest(BaseModel):
             Market.OVER_2_5,
             Market.BTTS,
             Market.UNDER_2_5,
-            Market.UNDER_4_5,
+            Market.OVER_1_5,
         ],
         min_length=1,
     )
@@ -142,7 +142,7 @@ async def generate_custom(request: CustomGeneratorRequest) -> CustomGeneratorRes
         Market.BTTS: "GG/NG",
         Market.OVER_2_5: "Over/Under",
         Market.UNDER_2_5: "Over/Under",
-        Market.UNDER_4_5: "Over/Under",
+        Market.OVER_1_5: "Over/Under",
     }
 
     events_by_id = {}
