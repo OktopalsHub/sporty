@@ -46,7 +46,7 @@ class SportyBetClient:
             max_retries if max_retries is not None else settings.sportybet_max_retries
         )
         )
-        self.max_retries = max_retries if max_retries is not None else settings.sportybet_max_retries
+        self.max_retries = (\n            max_retries if max_retries is not None else settings.sportybet_max_retries\n        )
         self.parse_api_key = parse_api_key or settings.parse_api_key
         self.parse_base_url = (parse_base_url or settings.parse_api_base_url).rstrip("/")
         if self.provider not in {"direct", "parse"}:
@@ -254,7 +254,7 @@ class SportyBetClient:
 
 
     @staticmethod
-    def _normalize_parse_outcomes(outcomes: list[dict[str, Any]]) -> tuple[list[ProviderEvent], int]:
+    def _normalize_parse_outcomes(\n        outcomes: list[dict[str, Any]],\n    ) -> tuple[list[ProviderEvent], int]:
         grouped: dict[str, dict[str, Any]] = {}
         for raw in outcomes:
             event_id = raw.get("eventId")
