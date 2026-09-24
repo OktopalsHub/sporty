@@ -12,7 +12,7 @@
     .panel{background:#11182d;border:1px solid #253152;border-radius:18px;padding:20px;box-shadow:0 16px 50px rgba(0,0,0,.22);margin-bottom:20px}
     label{display:block;font-size:12px;color:#9ca8c7;margin-bottom:7px}input,select,button{font:inherit}
     input,select{width:100%;background:#0b1020;border:1px solid #33416b;color:#eef2ff;border-radius:10px;padding:11px 12px}
-    .controls{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:12px;align-items:end}.actions{display:flex;gap:10px;flex-wrap:wrap}
+    .controls{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:12px;align-items:end}.actions{display:flex;gap:10px;flex-wrap:wrap}
     button{border:0;border-radius:10px;padding:11px 16px;background:#eef2ff;color:#0b1020;font-weight:700;cursor:pointer}button.secondary{background:#263454;color:#eef2ff}button:disabled{opacity:.5;cursor:not-allowed}
     .strategies{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.strategy{padding:16px;border:1px solid #2d3a60;border-radius:14px;background:#0e1528}
     .strategy h3{margin:0 0 7px}.strategy p{margin:0 0 14px;font-size:13px;color:#9ca8c7}.strategy strong{font-size:18px}
@@ -34,7 +34,7 @@
     <label for="apiKey">Production API key</label>
     <div class="controls">
       <input id="apiKey" type="password" autocomplete="off" placeholder="Enter your API key">
-      <div><label for="targetOdds">Target odds</label><input id="targetOdds" type="number" min="1.01" step="0.01" value="1000"></div>
+      <div><label for="targetOdds">Target odds</label><input id="targetOdds" type="number" min="1.01" step="0.01" value="1000"></div><div><label for="marketFilter">Market</label><select id="marketFilter"><option value="">All available</option><option value="over_1_5">Over 1.5</option><option value="over_2_5">Over 2.5</option><option value="under_2_5">Under 2.5</option><option value="btts">BTTS</option><option value="double_chance">Double chance (1X, X2, 12)</option><option value="match_result">Match result (1, X, 2)</option></select></div>
       <div><label for="hours">Look ahead</label><select id="hours"><option value="24">24 hours</option><option value="72">3 days</option><option value="168" selected>7 days</option><option value="336">14 days</option></select></div>
       <button id="saveKey" class="secondary">Save key</button>
     </div>
@@ -48,7 +48,7 @@
 
   <section class="panel">
     <div class="top" style="margin-bottom:14px"><div><h2 style="margin:0">Generated selections</h2><div class="muted" id="summary">No selections yet.</div></div><div class="actions"><button id="clear" class="secondary">Clear</button><button id="build" disabled>Build ticket</button></div></div>
-    <div class="table-wrap"><table><thead><tr><th></th><th>Match</th><th>Market</th><th>Selection</th><th>Odds</th><th>Probability</th><th>Confidence</th></tr></thead><tbody id="results"><tr><td colspan="7" class="empty">Enter your target odds and generate a ticket from the priority markets.</td></tr></tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th></th><th>Match</th><th>Market</th><th>Selection</th><th>Odds</th><th>Probability</th><th>Confidence</th></tr></thead><tbody id="results"><tr><td colspan="7" class="empty">Enter your target odds and generate a ticket from the selected market or all available markets.</td></tr></tbody></table></div>
   </section>
 
   <section class="panel" id="ticketPanel" hidden>
@@ -92,11 +92,11 @@ async function generate(strategy){
   const token=++generationToken;
   const target=Number($("targetOdds").value);
   if(!Number.isFinite(target)||target<=1){setStatus("Target odds must be greater than 1.",true);return}
-  setGenerationProgress(true,"Building "+target+" odds...","Fetching priority markets until a valid combination is found.");
+  setGenerationProgress(true,"Building "+target+" odds...","Fetching selected market or all available markets until a valid combination is found.");
   setStatus("Generation started.");
   try{
     const hours=Number($("hours").value);
-    const data=await request("/generators/custom/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target_odds:target,hours,markets:["over_2_5","btts","under_2_5","under_4_5"]})});
+    const data=await request("/generators/custom/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target_odds:target,hours,market_filter:$("marketFilter").value||null})});
     if(token!==generationToken)return;
     predictions=data.selections||[];
     selected=new Map(predictions.map(p=>[p.id,p]));
