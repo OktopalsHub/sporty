@@ -2,6 +2,11 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app import models  # noqa: F401
+from app.db import Base, _engine_kwargs
 
 from app.domain.markets import Market
 from app.domain.predictions import Confidence, Prediction
@@ -27,6 +32,14 @@ def prediction(index: int, event_id: str | None = None) -> Prediction:
         probability=0.80,
         confidence=Confidence.HIGH,
     )
+
+
+@pytest.fixture
+def selection_service(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'sporty.db'}"
+    engine = create_engine(database_url, future=True, **_engine_kwargs(database_url))
+    Base.metadata.create_all(bind=engine)
+    return SelectionService(session_factory=sessionmaker(bind=engine, autoflush=False, expire_on_commit=False))
 
 
 class FakeProvider:
@@ -63,7 +76,7 @@ def provider_event(event_id: str = "event-1", outcome_id: str = "1") -> Provider
                     ProviderOutcome(
                         id=outcome_id,
                         description="Over 1.5",
-                        odds=Decimal("1.50"),
+                        odds=Decimal("1.75"),
                         active=True,
                     ),
                 ),
@@ -73,8 +86,8 @@ def provider_event(event_id: str = "event-1", outcome_id: str = "1") -> Provider
 
 
 @pytest.mark.asyncio
-async def test_build_sends_exact_selected_provider_ids() -> None:
-    selections = SelectionService()
+async def test_build_sends_exact_selected_provider_ids(selection_service) -> None:
+    selections = selection_service
     session = selections.create_session()
     selected = prediction(1)
     selections.add(session.id, selected)
@@ -84,7 +97,8 @@ async def test_build_sends_exact_selected_provider_ids() -> None:
     result = await builder.build(session.id)
 
     assert len(result.selections) == 1
-    assert result.selections == (selected,)
+    assert result.selections[0].id == selected.id
+    assert result.selections[0].odds == Decimal("1.75")
     assert provider.sent == [
         {
             "event_id": "event-1",
@@ -97,8 +111,8 @@ async def test_build_sends_exact_selected_provider_ids() -> None:
 
 
 @pytest.mark.asyncio
-async def test_empty_selection_session_is_rejected() -> None:
-    selections = SelectionService()
+async def test_empty_selection_session_is_rejected(selection_service) -> None:
+    selections = selection_service
     session = selections.create_session()
     builder = TicketBuilder(selections, FakeProvider())
 
@@ -107,8 +121,8 @@ async def test_empty_selection_session_is_rejected() -> None:
 
 
 @pytest.mark.asyncio
-async def test_unavailable_selected_outcome_is_rejected() -> None:
-    selections = SelectionService()
+async def test_unavailable_selected_outcome_is_rejected(selection_service) -> None:
+    selections = selection_service
     session = selections.create_session()
     selections.add(session.id, prediction(1))
     provider = FakeProvider(provider_event(outcome_id="different"))
@@ -119,8 +133,8 @@ async def test_unavailable_selected_outcome_is_rejected() -> None:
 
 
 @pytest.mark.asyncio
-async def test_provider_failure_is_rejected_without_booking() -> None:
-    selections = SelectionService()
+async def test_provider_failure_is_rejected_without_booking(selection_service) -> None:
+    selections = selection_service
     session = selections.create_session()
     selections.add(session.id, prediction(1))
     provider = FakeProvider()

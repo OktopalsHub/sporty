@@ -2,6 +2,11 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.db import Base, _engine_kwargs
+from app import models  # noqa: F401
 
 from app.domain.markets import Market
 from app.domain.predictions import Confidence, Prediction
@@ -10,7 +15,10 @@ from app.services.selection_service import SelectionConflictError, SelectionServ
 
 @pytest.fixture
 def selection_service(tmp_path):
-    return SelectionService(database_url=f"sqlite:///{tmp_path / 'sporty.db'}")
+    database_url = f"sqlite:///{tmp_path / 'sporty.db'}"
+    engine = create_engine(database_url, future=True, **_engine_kwargs(database_url))
+    Base.metadata.create_all(bind=engine)
+    return SelectionService(session_factory=sessionmaker(bind=engine, autoflush=False, expire_on_commit=False))
 
 
 def prediction(index: int, event_id: str | None = None) -> Prediction:
@@ -75,20 +83,25 @@ def test_clear_removes_all_selections(selection_service):
 
 def test_selection_persists_across_service_instances(tmp_path):
     database_url = f"sqlite:///{tmp_path / 'sporty.db'}"
-    first = SelectionService(database_url=database_url)
+    engine = create_engine(database_url, future=True, **_engine_kwargs(database_url))
+    Base.metadata.create_all(bind=engine)
+    first = SelectionService(session_factory=sessionmaker(bind=engine, autoflush=False, expire_on_commit=False))
     session = first.create_session()
     item = prediction(1)
 
     first.add(session.id, item)
 
-    second = SelectionService(database_url=database_url)
+    second = SelectionService(session_factory=sessionmaker(bind=engine, autoflush=False, expire_on_commit=False))
     restored = second.get_session(session.id)
 
     assert restored.selections[item.id] == item
 
 
 def test_same_prediction_can_be_selected_in_different_sessions(tmp_path):
-    service = SelectionService(database_url=f"sqlite:///{tmp_path / 'sporty.db'}")
+    database_url = f"sqlite:///{tmp_path / 'sporty.db'}"
+    engine = create_engine(database_url, future=True, **_engine_kwargs(database_url))
+    Base.metadata.create_all(bind=engine)
+    service = SelectionService(session_factory=sessionmaker(bind=engine, autoflush=False, expire_on_commit=False))
     first = service.create_session()
     second = service.create_session()
     item = prediction(1)

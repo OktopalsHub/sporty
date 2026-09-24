@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from typing import Any
 
@@ -50,7 +50,7 @@ class TicketBuilder:
         if not selections:
             raise TicketBuildError("Cannot build a ticket from an empty selection session")
 
-        await self._validate_current_selections(selections)
+        selections = await self._validate_current_selections(selections)
 
         combined_odds = Decimal("1")
         for selection in selections:
@@ -86,7 +86,8 @@ class TicketBuilder:
     async def _validate_current_selections(
         self,
         selections: tuple[Prediction, ...],
-    ) -> None:
+    ) -> tuple[Prediction, ...]:
+        refreshed: list[Prediction] = []
         for selection in selections:
             try:
                 event = await self.provider.get_event_markets(selection.event_id)
@@ -129,3 +130,7 @@ class TicketBuilder:
                     f"Selected outcome {selection.outcome_id} for event "
                     f"{selection.event_id} is no longer available"
                 )
+
+            refreshed.append(replace(selection, odds=outcome.odds))
+
+        return tuple(refreshed)

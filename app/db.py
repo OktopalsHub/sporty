@@ -1,6 +1,6 @@
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import get_settings
@@ -33,7 +33,10 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
-def init_db() -> None:
-    from app import models  # noqa: F401
-
-    Base.metadata.create_all(bind=engine)
+def check_database() -> bool:
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        return True
+    except Exception:
+        return False

@@ -1,6 +1,6 @@
 from datetime import datetime\nfrom decimal import Decimal\nimport hashlib
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from app.domain.markets import Market
@@ -47,6 +47,12 @@ def _to_prediction(item: SelectionInput) -> Prediction:
     # keeps the exact generated market/outcome IDs and odds for later ticket
     # building; the event date can be refreshed when booking is implemented.
     from datetime import datetime, timezone
+
+    expected_id = hashlib.sha256(
+        f"{item.event_id}:{item.market_id}:{item.outcome_id}".encode()
+    ).hexdigest()[:24]
+    if item.id != expected_id:
+        raise ValueError("Invalid prediction id")
 
     return Prediction(
         id=item.id,
@@ -124,6 +130,8 @@ async def add_selection(
         raise HTTPException(status_code=404, detail="Selection session not found") from exc
     except SelectionConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.delete(
@@ -141,10 +149,10 @@ async def remove_selection(
         raise HTTPException(status_code=404, detail="Selection or session not found") from exc
 
 
-@router.delete("/sessions/{session_id}", response_model=SelectionSessionResponse)
-async def clear_selection_session(session_id: str) -> SelectionSessionResponse:
+@router.delete("/sessions/{session_id}", status_code=204)
+async def delete_selection_session(session_id: str) -> Response:
     try:
-        selection_service.clear(session_id)
-        return _response(session_id)
+        selection_service.delete_session(session_id)
+        return Response(status_code=204)
     except SelectionNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Selection session not found") from exc
