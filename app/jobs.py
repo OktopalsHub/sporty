@@ -8,8 +8,8 @@ from uuid import uuid4
 from sqlalchemy import DateTime, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base, SessionLocal
 from app.cache import get_redis
+from app.db import Base, SessionLocal
 
 
 class JobStatus(StrEnum):
@@ -33,6 +33,15 @@ class PredictionJobModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if self.progress is None:
+            self.progress = 0
+        if self.retry_count is None:
+            self.retry_count = 0
+        if self.payload is None:
+            self.payload = {}
 
 
 QUEUE_KEY = "jobs:prediction"
