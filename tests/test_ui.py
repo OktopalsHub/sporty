@@ -4,6 +4,7 @@ from app.main import app
 
 
 def test_root_serves_main_ui() -> None:
+    """Verify that the application root serves the main Sporty UI."""
     client = TestClient(app)
 
     response = client.get("/")
