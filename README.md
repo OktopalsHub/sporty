@@ -365,3 +365,40 @@ CI deployment runs automatically on pushes to `main`. FastAPI Cloud also support
 
 Do not run `alembic upgrade head` from the API application startup. FastAPI Cloud uses rolling deployments and multiple replicas, so migrations are applied once by the deployment workflow before the new API version is deployed.
 
+
+
+## Phase 22 production security
+
+Production deployments use defense-in-depth controls:
+
+- `X-API-Key` is mandatory for API routes when `APP_ENV=production`.
+- Health and readiness endpoints remain public for platform health checks.
+- API keys are compared with constant-time comparison.
+- Redis rate limiting fails closed in production when request protection is unavailable.
+- Trusted Host validation rejects unexpected Host headers.
+- Security response headers are enabled by default.
+- FastAPI Swagger, ReDoc, and OpenAPI endpoints can be disabled with `DOCS_ENABLED=false`.
+- Production secrets must be supplied by the deployment platform and never committed to Git.
+- CORS is restricted to the configured `FRONTEND_ORIGINS`.
+
+Production example:
+
+```env
+APP_ENV=production
+API_KEY=<strong-random-secret>
+DOCS_ENABLED=false
+TRUSTED_HOSTS=<api-domain>
+SECURITY_HEADERS_ENABLED=true
+RATE_LIMIT_FAIL_CLOSED=true
+FRONTEND_ORIGINS=https://<frontend-domain>
+```
+
+The API should be served behind HTTPS. `Strict-Transport-Security` is enabled by default for production responses.
+
+For API clients, send the API key as:
+
+```http
+X-API-Key: <strong-random-secret>
+```
+
+Do not use a source-control value for `API_KEY`. Generate a new high-entropy secret and store it only in FastAPI Cloud or the deployment secret manager.

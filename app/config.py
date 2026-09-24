@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     rate_limit_requests: int = 120
     rate_limit_window_seconds: int = 60
     api_key: str | None = None
+    docs_enabled: bool = True
+    trusted_hosts: str = "localhost,127.0.0.1"
+    security_headers_enabled: bool = True
+    rate_limit_fail_closed: bool = True
     sportybet_base_url: str = "https://www.sportybet.com"
     sportybet_region: str = "ng"
     sportybet_timeout: float = 15.0
@@ -36,6 +40,10 @@ class Settings(BaseSettings):
     @property
     def frontend_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.frontend_origins.split(",") if origin.strip()]
+
+    @property
+    def trusted_host_list(self) -> list[str]:
+        return [host.strip() for host in self.trusted_hosts.split(",") if host.strip()]
 
 
 @lru_cache

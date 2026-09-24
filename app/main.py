@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.routes.analysis import router as analysis_router
@@ -27,7 +28,7 @@ settings = get_settings()
 
 configure_logfire()
 
-app = FastAPI(title=settings.app_name, version="0.1.0")
+app = FastAPI(\n    title=settings.app_name,\n    version="0.1.0",\n    docs_url="/docs" if settings.docs_enabled else None,\n    redoc_url="/redoc" if settings.docs_enabled else None,\n    openapi_url="/openapi.json" if settings.docs_enabled else None,\n)\n\napp.add_middleware(\n    TrustedHostMiddleware,\n    allowed_hosts=settings.trusted_host_list,\n)
 logfire.instrument_fastapi(app)
 logfire.instrument_sqlalchemy(engine=engine)
 logfire.instrument_httpx()
@@ -53,7 +54,8 @@ app.add_middleware(
 async def request_context(request: Request, call_next):
     request_id = request.headers.get("X-Request-ID") or str(uuid4())
 
-    if settings.api_key and request.url.path.startswith(settings.api_prefix):
+    require_api_key = settings.app_env.lower() == "production" or bool(settings.api_key)
+    if require_api_key and request.url.path.startswith(settings.api_prefix):
         if request.url.path not in {
             f"{settings.api_prefix}/health",
             f"{settings.api_prefix}/ready",
