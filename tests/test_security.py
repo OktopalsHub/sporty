@@ -21,6 +21,13 @@ def test_unknown_host_is_rejected() -> None:
     assert response.status_code == 400
 
 
+def test_platform_host_is_accepted() -> None:
+    client = TestClient(app)
+    response = client.get("/api/v1/health", headers={"host": "sporty.fastapicloud.dev"})
+
+    assert response.status_code == 200
+
+
 class FailingRateLimiter:
     async def check(self, key: str):
         raise RuntimeError("redis unavailable")

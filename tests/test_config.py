@@ -23,6 +23,12 @@ def test_development_does_not_require_api_key() -> None:
     settings.validate_production()
 
 
+def test_default_trusted_hosts_include_platform_wildcard() -> None:
+    default = Settings.model_fields["trusted_hosts"].default
+    assert "*.fastapicloud.dev" in default.split(",")
+    assert "localhost" in default.split(",")
+
+
 def test_bare_postgresql_url_is_forced_to_psycopg_driver() -> None:
     settings = Settings(database_url="postgresql://user:pass@localhost:5432/sporty")
     assert settings.database_url == "postgresql+psycopg://user:pass@localhost:5432/sporty"

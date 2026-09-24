@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     rate_limit_window_seconds: int = 60
     api_key: str | None = None
     docs_enabled: bool = True
-    trusted_hosts: str = "localhost,127.0.0.1,testserver"
+    trusted_hosts: str = "localhost,127.0.0.1,testserver,*.fastapicloud.dev"
     security_headers_enabled: bool = True
     rate_limit_fail_closed: bool = True
     sportybet_base_url: str = "https://www.sportybet.com"
