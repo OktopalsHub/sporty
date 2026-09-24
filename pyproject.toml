@@ -23,8 +23,9 @@ dev = [
 
 ]
 
-[project.optional-dependencies.loadtest]
-locust = ["locust>=2.32,<3.0"]
+loadtest = [
+  "locust>=2.32,<3.0",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
