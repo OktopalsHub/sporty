@@ -451,3 +451,20 @@ Phase 26 adds a manual GitHub Actions smoke test for the deployed production API
 Run **Production verification** after a production deployment and provide the production API base URL. The workflow reads the production API key from the protected GitHub `production` environment and never accepts the key as an input.
 
 See `docs/phase-26-production-verification.md` for the release sequence and rollback checks.
+
+
+## SportyBet provider
+
+Production can use the maintained Parse SportyBet Nigeria wrapper instead of calling the SportyBet web endpoint directly.
+
+Set these FastAPI Cloud environment variables:
+
+```env
+SPORTYBET_PROVIDER=parse
+PARSE_API_KEY=<Parse secret>
+PARSE_API_BASE_URL=https://api.parse.bot/scraper/8e652912-d760-4522-85ce-071e539a9c12
+```
+
+The Parse adapter uses the pre-match football markets endpoint for generators, the single-event markets endpoint for ticket validation, and `book_bet` for share-ticket creation. Keep the Parse key in FastAPI Cloud secrets and do not commit it.
+
+For local development or fallback, use `SPORTYBET_PROVIDER=direct`.
