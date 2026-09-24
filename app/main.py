@@ -27,6 +27,7 @@ from app.rate_limit import RedisRateLimiter
 from app.observability import configure_logfire
 
 settings = get_settings()
+settings.validate_production()
 
 configure_logfire()
 
