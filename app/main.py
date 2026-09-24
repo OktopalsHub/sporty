@@ -54,7 +54,8 @@ app.add_middleware(
 async def request_context(request: Request, call_next):
     request_id = request.headers.get("X-Request-ID") or str(uuid4())
 
-    if request.url.path.startswith(settings.api_prefix):
+    require_api_key = settings.app_env.lower() == "production" or bool(settings.api_key)
+    if require_api_key and request.url.path.startswith(settings.api_prefix):
         if request.url.path not in {
             f"{settings.api_prefix}/health",
             f"{settings.api_prefix}/ready",
