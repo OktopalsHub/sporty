@@ -89,11 +89,6 @@ async def _generate(market: Market, request: GeneratorRequest) -> GeneratorRespo
     )
 
 
-@router.post("/over-1-5/generate", response_model=GeneratorResponse)
-async def generate_over_1_5(request: GeneratorRequest) -> GeneratorResponse:
-    return await _generate(Market.OVER_1_5, request)
-
-
 @router.post("/over-2-5/generate", response_model=GeneratorResponse)
 async def generate_over_2_5(request: GeneratorRequest) -> GeneratorResponse:
     return await _generate(Market.OVER_2_5, request)
