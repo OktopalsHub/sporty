@@ -96,7 +96,7 @@ class SportyBetClient:
                         continue
                     break
 
-            raise SportyBetError(f"SportyBet request failed: {last_error or "unknown error"}") from last_error
+            raise SportyBetError(f"SportyBet request failed: {last_error or 'unknown error'}") from last_error
 
 
     async def _request_parse(self, method: str, endpoint: str, **kwargs: Any) -> dict[str, Any]:
