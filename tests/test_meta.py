@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app.domain.markets import Market
 from app.main import app
 
 
@@ -11,12 +12,7 @@ def test_meta_exposes_frontend_markets_and_strategies() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["app_name"] == "Sporty"
-    assert {item["id"] for item in body["markets"]} == {
-        "over_2_5",
-        "btts",
-        "under_2_5",
-        "under_4_5",
-    }
+    assert {item["id"] for item in body["markets"]} == {market.value for market in Market}
     assert {item["id"] for item in body["strategies"]} == {
         "custom",
     }

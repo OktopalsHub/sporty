@@ -13,7 +13,7 @@ router = APIRouter(prefix="/generators/weekly-safe", tags=["generators"])
 
 class WeeklySafeRequest(BaseModel):
     page: int = Field(default=1, ge=1)
-    page_size: int = Field(default=25, ge=1, le=25)
+    page_size: int = Field(default=25, ge=1, le=100)
     hours: int = Field(default=168, ge=1, le=720)
     min_probability: float = Field(default=0.75, ge=0.0, le=1.0)
     min_confidence: Confidence = Confidence.HIGH

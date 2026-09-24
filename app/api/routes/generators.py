@@ -16,7 +16,7 @@ router = APIRouter(prefix="/generators", tags=["generators"])
 
 class GeneratorRequest(BaseModel):
     page: int = Field(default=1, ge=1)
-    page_size: int = Field(default=25, ge=1, le=25)
+    page_size: int = Field(default=25, ge=1, le=100)
     hours: int = Field(default=168, ge=1, le=720)
     min_probability: float = Field(default=0.0, ge=0.0, le=1.0)
     confidence: list[Confidence] | None = None
