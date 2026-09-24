@@ -29,6 +29,7 @@ class Prediction:
     probability: float
     confidence: Confidence
     reasons: tuple[str, ...] = ()
+    market_name: str | None = None
 
     @property
     def expected_value(self) -> float:
