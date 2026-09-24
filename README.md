@@ -259,7 +259,7 @@ REDIS_MAX_CONNECTIONS=20
 REDIS_HEALTH_CHECK_INTERVAL=30
 ```
 
-The `rediss://` scheme enables TLS in `redis-py`. Upstash Redis provides TLS TCP connection strings and is compatible with the Redis protocol, so it can be used without an application-specific adapter. citeturn2search0turn2search9
+The `rediss://` scheme enables TLS in `redis-py`. Upstash Redis provides TLS TCP connection strings and is compatible with the Redis protocol, so it can be used without an application-specific adapter.
 
 Redis is shared by all API instances and the background worker for:
 
@@ -274,7 +274,7 @@ The Redis client uses connection pooling, TCP keepalive, and periodic health che
 
 ## Phase 21 FastAPI Cloud deployment
 
-Production API deployment targets FastAPI Cloud. FastAPI Cloud supports standard Python projects and can deploy this project with `fastapi deploy`. The project now declares the FastAPI CLI dependency and an explicit `app.main:app` entrypoint. citeturn1search5turn1search15
+Production API deployment targets FastAPI Cloud. FastAPI Cloud supports standard Python projects and can deploy this project with `fastapi deploy`. The project now declares the FastAPI CLI dependency and an explicit `app.main:app` entrypoint.
 
 Production flow:
 
@@ -293,7 +293,7 @@ GitHub Actions
    +--> Logfire
 ```
 
-FastAPI Cloud can autoscale API instances, so the API must remain stateless. Database state lives in Neon and shared Redis state lives in the managed Redis service. citeturn3search4
+FastAPI Cloud can autoscale API instances, so the API must remain stateless. Database state lives in Neon and shared Redis state lives in the managed Redis service.
 
 ### Required FastAPI Cloud secrets
 
@@ -303,7 +303,7 @@ Configure these repository secrets before enabling production deployment:
 - `FASTAPI_CLOUD_APP_ID`
 - `DATABASE_URL`
 
-The deploy workflow applies Alembic migrations to the Neon database before deploying the new API version. FastAPI Cloud's CI deployment flow uses a deploy token and app ID from GitHub secrets. citeturn5search0
+The deploy workflow applies Alembic migrations to the Neon database before deploying the new API version. FastAPI Cloud's CI deployment flow uses a deploy token and app ID from GitHub secrets.
 
 ### Required FastAPI Cloud environment variables
 
@@ -359,7 +359,7 @@ fastapi login
 fastapi deploy
 ```
 
-CI deployment runs automatically on pushes to `main`. FastAPI Cloud also supports a generated CI setup through `fastapi cloud setup-ci`. citeturn5search1
+CI deployment runs automatically on pushes to `main`. FastAPI Cloud also supports a generated CI setup through `fastapi cloud setup-ci`.
 
 ### Production migration rule
 
