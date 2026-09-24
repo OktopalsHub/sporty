@@ -64,7 +64,7 @@ services:
       REDIS_HEALTH_CHECK_INTERVAL: 30
       RATE_LIMIT_REQUESTS: 120
       RATE_LIMIT_WINDOW_SECONDS: 60
-      API_KEY:
+      API_KEY: local-development-only
       FRONTEND_ORIGINS: http://localhost:3000,http://localhost:5173
       SPORTYBET_BASE_URL: https://www.sportybet.com
       SPORTYBET_REGION: ng
