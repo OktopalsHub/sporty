@@ -29,9 +29,6 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: alembic upgrade head
 
-      - name: Install FastAPI Cloud CLI
-        run: pip install "fastapi[standard]"
-
       - name: Deploy to FastAPI Cloud
         env:
           FASTAPI_CLOUD_TOKEN: ${{ secrets.FASTAPI_CLOUD_TOKEN }}
