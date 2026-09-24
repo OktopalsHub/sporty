@@ -57,6 +57,8 @@ class PredictionService:
         for outcome in provider_market.outcomes:
             if not outcome.active or outcome.odds <= Decimal("1.00"):
                 continue
+            if not self._outcome_matches(outcome, target):
+                continue
 
             probability = self._implied_probability(outcome.odds)
             confidence = self._confidence(probability)
@@ -89,7 +91,42 @@ class PredictionService:
     @staticmethod
     def _market_matches(description: str, specifier: str, target: Market) -> bool:
         aliases = MARKET_ALIASES[target]
-        return any(alias in description or alias in specifier for alias in aliases)
+        if any(alias in description or alias in specifier for alias in aliases):
+            return True
+
+        if description in {"over/under", "over under", "total goals", "total"}:
+            line = PredictionService._specifier_value(specifier, "total")
+            target_line = {
+                Market.OVER_1_5: "1.5",
+                Market.OVER_2_5: "2.5",
+                Market.UNDER_2_5: "2.5",
+                Market.UNDER_4_5: "4.5",
+            }.get(target)
+            return line == target_line
+
+        if target == Market.BTTS and ("gg/ng" in description or description == "gg"):
+            return True
+
+        return False
+
+    @staticmethod
+    def _outcome_matches(outcome: ProviderOutcome, target: Market) -> bool:
+        value = re.sub(r"[^a-z0-9.]+", " ", outcome.description.lower()).strip()
+        if target in {Market.OVER_1_5, Market.OVER_2_5}:
+            return value == "over" or value.startswith("over ")
+        if target in {Market.UNDER_2_5, Market.UNDER_4_5}:
+            return value == "under" or value.startswith("under ")
+        if target == Market.BTTS:
+            return value in {"yes", "gg", "goal goal", "both teams to score", "btts"}
+        return True
+
+    @staticmethod
+    def _specifier_value(specifier: str, key: str) -> str | None:
+        match = re.search(
+            rf"(?:^|[;|,])\\s*{re.escape(key)}\\s*=\\s*(-?\\d+(?:\\.\\d+)?)",
+            specifier,
+        )
+        return match.group(1) if match else None
 
     @staticmethod
     def _normalize(value: str) -> str:
