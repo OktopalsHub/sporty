@@ -171,12 +171,18 @@ class SelectionService:
 
     @staticmethod
     def _to_prediction(item: SelectionModel) -> Prediction:
+        start_time = item.start_time
+        if start_time.tzinfo is None:
+            start_time = start_time.replace(tzinfo=timezone.utc)
+        else:
+            start_time = start_time.astimezone(timezone.utc)
+
         return Prediction(
             id=item.id,
             event_id=item.event_id,
             home_team=item.home_team,
             away_team=item.away_team,
-            start_time=item.start_time,
+            start_time=start_time,
             market=Market(item.market),
             market_id=item.market_id,
             specifier=item.specifier,
