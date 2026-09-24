@@ -27,7 +27,6 @@ class AppMetaResponse(BaseModel):
 
 
 MARKET_LABELS = {
-    Market.OVER_1_5: "Over 1.5",
     Market.OVER_2_5: "Over 2.5",
     Market.BTTS: "Both Teams To Score",
     Market.UNDER_2_5: "Under 2.5",
