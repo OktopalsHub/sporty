@@ -168,3 +168,28 @@ Supported job types are `1k`, `5k`, `weekly_safe`, `over_1_5`, `over_2_5`, `btts
 The API returns `202 Accepted` with a job ID. Poll `GET /api/v1/jobs/{job_id}` for status, progress, retries, errors, and the completed result.
 
 The Docker stack now runs API, worker, PostgreSQL, and Redis as separate services. The worker consumes the `jobs:prediction` Redis queue and retries failed jobs up to three attempts.
+
+## Phase 18 observability
+
+The application uses Pydantic Logfire for production observability.
+
+Logfire instruments:
+
+- FastAPI request traces and validation errors
+- SQLAlchemy database queries
+- HTTPX outbound requests, including SportyBet calls
+- Redis commands
+- Background prediction job spans
+- Prediction job completion, failure, retry, and duration metrics
+
+For local development:
+
+```env
+LOGFIRE_TOKEN=
+LOGFIRE_SEND_TO_LOGFIRE=if-token-present
+LOGFIRE_SERVICE_NAME=Sporty
+LOGFIRE_SERVICE_VERSION=0.1.0
+LOGFIRE_ENVIRONMENT=development
+```
+
+The application uses `send_to_logfire="if-token-present"`, so local tests do not require a Logfire token. The old `GET /api/v1/metrics` Prometheus endpoint is not exposed.
