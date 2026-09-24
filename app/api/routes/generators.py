@@ -151,6 +151,7 @@ async def generate_custom(request: CustomGeneratorRequest) -> CustomGeneratorRes
     events_by_id = {}
     exhausted: set[Market] = set()
     optimizer = OddsOptimizer()
+    # Each page is fetched for every active market before running the optimizer.
 
     try:
         for page in range(1, 21):
