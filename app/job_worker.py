@@ -8,7 +8,8 @@ import time
 import logfire
 
 from app.cache import get_redis
-from app.db import SessionLocal, engine
+from app.db import engine
+from app.db import SessionLocal
 from app.job_executor import execute_prediction_job
 from app.jobs import MAX_RETRIES, QUEUE_KEY, JobStatus, PredictionJobModel, utcnow
 from app.metrics import JOB_COMPLETED, JOB_DURATION, JOB_FAILED, JOB_RETRIES
@@ -60,6 +61,7 @@ async def process_job(job_id: str) -> None:
                         job.completed_at = utcnow()
                     db.commit()
 
+                JOB_RETRIES.add(1)
                 JOB_DURATION.record(time.perf_counter() - started)
 
                 if should_retry:
@@ -74,7 +76,6 @@ async def process_job(job_id: str) -> None:
                         QUEUE_KEY,
                         json.dumps({"job_id": job_id}, separators=(",", ":")),
                     )
-                    JOB_RETRIES.add(1)
                 else:
                     JOB_FAILED.add(1)
                     logfire.error(
@@ -86,6 +87,7 @@ async def process_job(job_id: str) -> None:
                 return
 
         JOB_DURATION.record(time.perf_counter() - started)
+        JOB_COMPLETED.add(1)
         with SessionLocal() as db:
             job = db.get(PredictionJobModel, job_id)
             if job is None:
@@ -96,7 +98,6 @@ async def process_job(job_id: str) -> None:
             job.status = JobStatus.COMPLETED
             job.completed_at = utcnow()
             db.commit()
-        JOB_COMPLETED.add(1)
     finally:
         await redis.delete(lock_key)
 

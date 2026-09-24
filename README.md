@@ -44,7 +44,7 @@ alembic upgrade head
 
 ## Redis
 
-Redis is used for distributed API rate limiting.
+Redis is used for distributed API rate limiting and the background prediction queue.
 
 For local development:
 
@@ -73,7 +73,7 @@ Build and run the production-like PostgreSQL and Redis stack:
 docker compose up --build
 ```
 
-The container entrypoint runs `alembic upgrade head` before starting Uvicorn. Production deployments should use the same migration-first pattern and provide secrets through the deployment environment, not the image.
+The container entrypoint runs `alembic upgrade head` before starting the API. Production deployments should use the same migration-first pattern and provide secrets through the deployment environment, not the image.
 
 ## Phase 13 frontend integration contract
 
@@ -146,7 +146,6 @@ Do not commit real API keys to the repository.
 
 Phase 16 adds Redis-backed distributed rate limiting so multiple API instances share the same request budget. It also makes Redis part of readiness checks and local/CI infrastructure.
 
-
 ## Background prediction jobs
 
 Long-running prediction generation can be submitted to the Redis-backed worker queue.
@@ -171,7 +170,7 @@ The Docker stack now runs API, worker, PostgreSQL, and Redis as separate service
 
 ## Phase 18 observability
 
-The application uses Pydantic Logfire for production observability.
+The application uses Pydantic Logfire for production observability instead of exposing a Prometheus endpoint.
 
 Logfire instruments:
 
@@ -179,8 +178,11 @@ Logfire instruments:
 - SQLAlchemy database queries
 - HTTPX outbound requests, including SportyBet calls
 - Redis commands
-- Background prediction job spans
+- Prediction worker spans
 - Prediction job completion, failure, retry, and duration metrics
+- Standard application logs can be added to the same Logfire project when needed
+
+FastAPI Cloud can connect a Logfire project to an app and inject the `LOGFIRE_TOKEN` environment variable as an encrypted secret. The application uses `send_to_logfire="if-token-present"`, so local tests do not require a Logfire token.
 
 For local development:
 
@@ -192,4 +194,53 @@ LOGFIRE_SERVICE_VERSION=0.1.0
 LOGFIRE_ENVIRONMENT=development
 ```
 
-The application uses `send_to_logfire="if-token-present"`, so local tests do not require a Logfire token. The old `GET /api/v1/metrics` Prometheus endpoint is not exposed.
+For FastAPI Cloud, connect the Logfire integration to the deployed app and let FastAPI Cloud provide `LOGFIRE_TOKEN`.
+
+The old `GET /api/v1/metrics` Prometheus endpoint has been removed. No Prometheus server is required.
+
+## FastAPI Cloud
+
+Production deployment should use FastAPI Cloud with the following external services:
+
+- Neon PostgreSQL
+- Managed Redis
+- Logfire
+
+The application remains responsible for API routes, background jobs, migrations, and business logic.
+
+## Phase 19 production database
+
+The production database is PostgreSQL hosted by Neon. The application still uses SQLAlchemy, psycopg, and Alembic, so no Neon-specific ORM layer is required.
+
+Set `DATABASE_URL` to the Neon connection string. Prefer Neon's pooled connection string for the API and worker when the deployment can create multiple application instances. Keep the `sslmode=require` parameter from the Neon connection string.
+
+Production database settings are configurable through:
+
+- `DATABASE_POOL_SIZE`
+- `DATABASE_MAX_OVERFLOW`
+- `DATABASE_POOL_TIMEOUT`
+- `DATABASE_POOL_RECYCLE`
+- `DATABASE_CONNECT_TIMEOUT`
+
+The defaults are intentionally conservative for autoscaling deployments. Each API or worker instance has its own connection pool, so increasing pool sizes also increases the possible number of PostgreSQL connections.
+
+Example:
+
+```env
+DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST/DBNAME?sslmode=require
+DATABASE_POOL_SIZE=5
+DATABASE_MAX_OVERFLOW=5
+DATABASE_POOL_TIMEOUT=30
+DATABASE_POOL_RECYCLE=300
+DATABASE_CONNECT_TIMEOUT=10
+```
+
+Apply schema changes with Alembic:
+
+```bash
+alembic upgrade head
+```
+
+Do not put the Neon password or connection string in the repository. Store `DATABASE_URL` as a FastAPI Cloud secret.
+
+Local Docker development continues to use the local PostgreSQL service. Neon is the production database provider, not a required local dependency.
