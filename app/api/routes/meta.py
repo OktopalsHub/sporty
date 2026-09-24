@@ -30,7 +30,11 @@ MARKET_LABELS = {
     Market.OVER_2_5: "Over 2.5",
     Market.BTTS: "Both Teams To Score",
     Market.UNDER_2_5: "Under 2.5",
+    Market.OVER_1_5: "Over 1.5",
     Market.UNDER_4_5: "Under 4.5",
+    Market.DOUBLE_CHANCE: "Double chance",
+    Market.MATCH_RESULT: "Match result",
+    Market.ALL: "All available",
 }
 
 
@@ -49,7 +53,7 @@ async def get_app_meta() -> AppMetaResponse:
                 id="custom",
                 label="Build ticket",
                 target_odds=None,
-                description="Build a ticket to any target odds using Over 2.5, BTTS, Under 2.5 and Under 4.5.",
+                description="Build a ticket to any target odds. Select a market for an exact filter, or leave it on All available.",
             ),
         ]
     )
