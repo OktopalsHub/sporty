@@ -62,7 +62,9 @@ let predictions=[];
 let selected=new Map();
 const $=id=>document.getElementById(id);
 const keyInput=$("apiKey");
-keyInput.value=sessionStorage.getItem("sporty_api_key")||"";
+let generationToken=0;
+let storageAvailable=true;
+try{keyInput.value=sessionStorage.getItem("sporty_api_key")||""}catch(e){storageAvailable=false}
 
 function setStatus(message,error=false){$("status").textContent=message;$("status").className="status"+(error?" error":"")}
 function headers(){const key=keyInput.value.trim();return key?{"X-API-Key":key}:{}}
@@ -87,14 +89,16 @@ async function boot(){
 }
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]))}
 async function generate(strategy){
+  const token=++generationToken;
   setStatus("Generating "+strategy+"...");
   try{
     const hours=$("hours").value,page_size=$("pageSize").value;
-    const paths={1k:"/generators/1k/generate",5k_random:"/generators/5k/generate",weekly_safe:"/generators/weekly-safe/generate"};
+    const paths={"1k":"/generators/1k/generate","5k_random":"/generators/5k/generate","weekly_safe":"/generators/weekly-safe/generate"};
     const body={page:1,page_size:Number(page_size),hours:Number(hours)};
     if(strategy==="5k_random") Object.assign(body,{min_probability:.55,candidate_pool_size:150,attempts:25});
     if(strategy==="weekly_safe") Object.assign(body,{min_probability:.75,min_days:3,candidate_limit_per_day:40});
     const data=await request(paths[strategy],{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(token!==generationToken)return;
     predictions=data.selections||[];
     selected=new Map(predictions.map(p=>[p.id,p]));
     render();
@@ -107,8 +111,8 @@ function render(){
   $("results").innerHTML=predictions.length?predictions.map(p=>'<tr><td><div class="pick"><input type="checkbox" '+(selected.has(p.id)?"checked":"")+' onchange="toggle(\''+p.id+'\',this.checked)"></div></td><td>'+escapeHtml(p.home_team)+" vs "+escapeHtml(p.away_team)+'</td><td><span class="pill">'+escapeHtml(p.market)+'</span></td><td>'+escapeHtml(p.selection)+'</td><td>'+escapeHtml(p.odds)+'</td><td>'+Math.round(Number(p.probability)*100)+'%</td><td>'+escapeHtml(p.confidence)+'</td></tr>').join(""):'<tr><td colspan="7" class="empty">No predictions returned.</td></tr>';
 }
 function toggle(id,on){if(on)selected.set(id,predictions.find(p=>p.id===id));else selected.delete(id);render()}
-$("saveKey").onclick=async()=>{sessionStorage.setItem("sporty_api_key",keyInput.value.trim());await boot()}
-$("clear").onclick=()=>{predictions=[];selected.clear();$("ticketPanel").hidden=true;render();setStatus("Selections cleared.")}
+$("saveKey").onclick=async()=>{try{sessionStorage.setItem("sporty_api_key",keyInput.value.trim());storageAvailable=true}catch(e){storageAvailable=false}await boot()}
+$("clear").onclick=()=>{generationToken++;predictions=[];selected.clear();$("ticketPanel").hidden=true;render();setStatus("Selections cleared.")}
 $("build").onclick=async()=>{
   setStatus("Creating selection session...");
   try{
