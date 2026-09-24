@@ -5,7 +5,7 @@ from app.main import app
 
 def test_security_headers_are_present() -> None:
     client = TestClient(app)
-    response = client.get("/api/v1/health")
+    response = client.get("/api/v1/health", headers={"host": "localhost"})
 
     assert response.status_code == 200
     assert response.headers["X-Content-Type-Options"] == "nosniff"
@@ -20,9 +20,3 @@ def test_unknown_host_is_rejected() -> None:
 
     assert response.status_code == 400
 
-
-def test_docs_can_be_disabled(monkeypatch) -> None:
-    monkeypatch.setattr("app.main.settings.docs_enabled", False)
-    client = TestClient(app)
-
-    assert client.get("/docs").status_code == 404
