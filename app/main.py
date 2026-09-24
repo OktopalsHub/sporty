@@ -1,7 +1,9 @@
+import secrets
+from uuid import uuid4
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from uuid import uuid4
 
 from app.api.routes.analysis import router as analysis_router
 from app.api.routes.five_k import router as five_k_router
@@ -33,12 +35,39 @@ app.add_middleware(
 @app.middleware("http")
 async def request_context(request: Request, call_next):
     request_id = request.headers.get("X-Request-ID") or str(uuid4())
+
+    if settings.api_key and request.url.path.startswith(settings.api_prefix):
+        if request.url.path not in {
+            f"{settings.api_prefix}/health",
+            f"{settings.api_prefix}/ready",
+        }:
+            supplied_key = request.headers.get("X-API-Key", "")
+            if not secrets.compare_digest(supplied_key, settings.api_key):
+                response = JSONResponse(
+                    status_code=401,
+                    content={
+                        "error": {
+                            "code": "invalid_api_key",
+                            "message": "A valid API key is required",
+                        },
+                        "request_id": request_id,
+                    },
+                )
+                response.headers["X-Request-ID"] = request_id
+                return response
+
     try:
         response = await call_next(request)
     except Exception:
         response = JSONResponse(
             status_code=500,
-            content={"error": {"code": "internal_server_error", "message": "Internal server error"}, "request_id": request_id},
+            content={
+                "error": {
+                    "code": "internal_server_error",
+                    "message": "Internal server error",
+                },
+                "request_id": request_id,
+            },
         )
     response.headers["X-Request-ID"] = request_id
     return response

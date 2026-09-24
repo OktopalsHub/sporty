@@ -11,9 +11,15 @@ class Base(DeclarativeBase):
 
 
 def _engine_kwargs(database_url: str) -> dict:
+    settings = get_settings()
     if database_url.startswith("sqlite"):
         return {"connect_args": {"check_same_thread": False}}
-    return {"pool_pre_ping": True}
+    return {
+        "pool_pre_ping": True,
+        "pool_size": settings.database_pool_size,
+        "max_overflow": settings.database_max_overflow,
+        "pool_timeout": settings.database_pool_timeout,
+    }
 
 
 def create_database_engine(database_url: str | None = None):

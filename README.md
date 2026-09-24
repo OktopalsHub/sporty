@@ -28,18 +28,18 @@ pytest --cov=app --cov-report=term-missing
 
 ## Database
 
-The application uses SQLAlchemy.
+The application uses SQLAlchemy with PostgreSQL as the primary database.
 
 For local development:
 
 ```env
-DATABASE_URL=sqlite:///./sporty.db
+DATABASE_URL=postgresql+psycopg://sporty:sporty@localhost:5432/sporty
 ```
 
-For MySQL:
+For Docker Compose, the API uses the PostgreSQL service automatically:
 
 ```env
-DATABASE_URL=mysql+pymysql://user:password@host:3306/sporty
+DATABASE_URL=postgresql+psycopg://sporty:sporty@db:5432/sporty
 ```
 
 The application does not create tables automatically at startup. Use Alembic to apply the schema before starting the API:
@@ -69,16 +69,7 @@ alembic upgrade head
 
 ## Docker
 
-Build and run the production-like image:
-
-```bash
-docker build -t sporty .
-docker run --rm -p 8000:8000 \
-  -e DATABASE_URL=sqlite:///./sporty.db \
-  sporty
-```
-
-For a MySQL-backed local stack:
+Build and run the production-like PostgreSQL stack:
 
 ```bash
 docker compose up --build
@@ -133,6 +124,27 @@ FastAPI OpenAPI is available at `/docs` and `/openapi.json` for frontend client 
 
 ## CI
 
-GitHub Actions runs on pushes and pull requests. It installs the development dependencies, runs Ruff, runs the test suite with coverage, and applies the Alembic migrations against SQLite.
+GitHub Actions runs on pushes and pull requests. It installs the development dependencies, runs Ruff, runs the test suite with PostgreSQL, and applies the Alembic migrations against PostgreSQL.
 
-The CI workflow is the minimum merge gate. A deployment should also run the same migration command against the target database before serving traffic.
+The CI workflow is the minimum merge gate. A deployment should also run the same migration command against the target PostgreSQL database before serving traffic.
+
+
+## Phase 15 production hardening
+
+PostgreSQL is the primary database for development, CI, and deployment.
+
+Database connections use SQLAlchemy pooling with configurable:
+
+- `DATABASE_POOL_SIZE`
+- `DATABASE_MAX_OVERFLOW`
+- `DATABASE_POOL_TIMEOUT`
+
+Set `API_KEY` in a protected deployment environment to require `X-API-Key` on API routes. The liveness and readiness endpoints remain public so container and platform health checks can run without credentials.
+
+Example:
+
+```env
+API_KEY=replace-with-a-secret
+```
+
+Do not commit real API keys to the repository.

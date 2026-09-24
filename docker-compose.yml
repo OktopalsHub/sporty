@@ -1,26 +1,29 @@
 services:
   db:
-    image: mysql:8.4
+    image: postgres:17
     environment:
-      MYSQL_DATABASE: sporty
-      MYSQL_USER: sporty
-      MYSQL_PASSWORD: sporty
-      MYSQL_ROOT_PASSWORD: root
+      POSTGRES_DB: sporty
+      POSTGRES_USER: sporty
+      POSTGRES_PASSWORD: sporty
     ports:
-      - "3306:3306"
+      - "5432:5432"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      test: ["CMD-SHELL", "pg_isready -U sporty -d sporty"]
       interval: 5s
       timeout: 5s
       retries: 20
     volumes:
-      - sporty_mysql:/var/lib/mysql
+      - sporty_postgres:/var/lib/postgresql/data
 
   api:
     build: .
     environment:
       APP_ENV: production
-      DATABASE_URL: mysql+pymysql://sporty:sporty@db:3306/sporty
+      DATABASE_URL: postgresql+psycopg://sporty:sporty@db:5432/sporty
+      DATABASE_POOL_SIZE: 10
+      DATABASE_MAX_OVERFLOW: 20
+      DATABASE_POOL_TIMEOUT: 30
+      API_KEY: 
       FRONTEND_ORIGINS: http://localhost:3000,http://localhost:5173
       SPORTYBET_BASE_URL: https://www.sportybet.com
       SPORTYBET_REGION: ng
@@ -43,4 +46,4 @@ services:
         condition: service_healthy
 
 volumes:
-  sporty_mysql:
+  sporty_postgres:

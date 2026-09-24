@@ -7,7 +7,11 @@ class Settings(BaseSettings):
     app_name: str = "Sporty"
     app_env: str = "development"
     api_prefix: str = "/api/v1"
-    database_url: str = "sqlite:///./sporty.db"
+    database_url: str = "postgresql+psycopg://sporty:sporty@localhost:5432/sporty"
+    database_pool_size: int = 10
+    database_max_overflow: int = 20
+    database_pool_timeout: int = 30
+    api_key: str | None = None
     sportybet_base_url: str = "https://www.sportybet.com"
     sportybet_region: str = "ng"
     sportybet_timeout: float = 15.0
