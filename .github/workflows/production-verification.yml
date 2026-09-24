@@ -1,0 +1,70 @@
+name: Production verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Production API base URL, for example https://api.example.com"
+        required: true
+        type: string
+      verify_docs_disabled:
+        description: "Verify that /docs is disabled"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-verification
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Production smoke checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+
+    steps:
+      - name: Check liveness
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+        run: |
+          curl --fail --silent --show-error             --retry 5 --retry-delay 2             --connect-timeout 10 --max-time 30             "$BASE_URL/api/v1/health" | tee /tmp/health.json
+          grep -q '"status":"ok"' /tmp/health.json
+
+      - name: Check readiness
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+        run: |
+          curl --fail --silent --show-error             --retry 5 --retry-delay 2             --connect-timeout 10 --max-time 30             "$BASE_URL/api/v1/ready" | tee /tmp/ready.json
+          grep -q '"status":"ready"' /tmp/ready.json
+
+      - name: Check protected API
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          test -n "$API_KEY"
+          status=$(curl --silent --output /tmp/protected.json --write-out '%{http_code}'             --connect-timeout 10 --max-time 30             "$BASE_URL/api/v1/meta")
+          test "$status" = "401"
+          grep -q '"invalid_api_key"' /tmp/protected.json
+
+      - name: Check authenticated API
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          curl --fail --silent --show-error             --connect-timeout 10 --max-time 30             -H "X-API-Key: $API_KEY"             "$BASE_URL/api/v1/meta" | tee /tmp/meta.json
+          grep -q '"markets"' /tmp/meta.json
+          grep -q '"strategies"' /tmp/meta.json
+
+      - name: Verify API documentation is disabled
+        if: inputs.verify_docs_disabled
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+        run: |
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}'             --connect-timeout 10 --max-time 30             "$BASE_URL/docs")
+          test "$status" = "404"

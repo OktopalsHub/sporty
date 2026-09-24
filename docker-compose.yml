@@ -1,0 +1,92 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: sporty
+      POSTGRES_USER: sporty
+      POSTGRES_PASSWORD: sporty
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sporty -d sporty"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - sporty_postgres:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  worker:
+    build: .
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+psycopg://sporty:sporty@db:5432/sporty
+      DATABASE_POOL_SIZE: 5
+      DATABASE_MAX_OVERFLOW: 10
+      DATABASE_POOL_TIMEOUT: 30
+      DATABASE_POOL_RECYCLE: 300
+      DATABASE_CONNECT_TIMEOUT: 10
+      REDIS_URL: redis://redis:6379/0
+      REDIS_TIMEOUT: 5.0
+      REDIS_MAX_CONNECTIONS: 10
+      REDIS_HEALTH_CHECK_INTERVAL: 30
+      SPORTYBET_BASE_URL: https://www.sportybet.com
+      SPORTYBET_REGION: ng
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    entrypoint: ["/worker-entrypoint.sh"]
+
+  api:
+    build: .
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+psycopg://sporty:sporty@db:5432/sporty
+      DATABASE_POOL_SIZE: 5
+      DATABASE_MAX_OVERFLOW: 5
+      DATABASE_POOL_TIMEOUT: 30
+      DATABASE_POOL_RECYCLE: 300
+      DATABASE_CONNECT_TIMEOUT: 10
+      REDIS_URL: redis://redis:6379/0
+      REDIS_TIMEOUT: 5.0
+      REDIS_MAX_CONNECTIONS: 10
+      REDIS_HEALTH_CHECK_INTERVAL: 30
+      RATE_LIMIT_REQUESTS: 120
+      RATE_LIMIT_WINDOW_SECONDS: 60
+      API_KEY: local-development-only
+      FRONTEND_ORIGINS: http://localhost:3000,http://localhost:5173
+      SPORTYBET_BASE_URL: https://www.sportybet.com
+      SPORTYBET_REGION: ng
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  sporty_postgres:

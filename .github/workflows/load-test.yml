@@ -1,0 +1,64 @@
+name: Load test
+
+on:
+  workflow_dispatch:
+    inputs:
+      users:
+        description: "Concurrent users"
+        required: false
+        default: "25"
+      spawn_rate:
+        description: "Users started per second"
+        required: false
+        default: "5"
+      duration:
+        description: "Test duration"
+        required: false
+        default: "60s"
+
+jobs:
+  load-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Start application stack
+        run: docker compose up --build -d
+
+      - name: Wait for API
+        run: |
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8000/api/v1/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs
+          exit 1
+
+      - name: Install load-test dependency
+        run: python -m pip install "locust>=2.32,<3.0"
+
+      - name: Run load test
+        env:
+          USERS: ${{ inputs.users }}
+          SPAWN_RATE: ${{ inputs.spawn_rate }}
+          DURATION: ${{ inputs.duration }}
+        run: |
+          locust             -f loadtest/locustfile.py             --headless             -u "$USERS"             -r "$SPAWN_RATE"             -t "$DURATION"             --csv=loadtest/results
+
+      - name: Upload load-test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-results
+          path: loadtest/results*
+
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Stop application stack
+        if: always()
+        run: docker compose down -v

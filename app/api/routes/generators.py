@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.domain.markets import Market
-from app.domain.predictions import Confidence, Prediction
+from app.domain.predictions import Confidence
 from app.providers.sportybet.client import SportyBetClient, SportyBetError
 from app.services.market_generator import MarketGenerator
 from app.services.prediction_service import PredictionService
