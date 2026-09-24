@@ -32,6 +32,9 @@ MARKET_LABELS = {
     Market.UNDER_2_5: "Under 2.5",
     Market.OVER_1_5: "Over 1.5",
     Market.UNDER_4_5: "Under 4.5",
+    Market.DOUBLE_CHANCE: "Double chance",
+    Market.MATCH_RESULT: "Match result",
+    Market.ALL: "All available",
 }
 
 
