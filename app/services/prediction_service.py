@@ -9,10 +9,13 @@ from app.domain.predictions import Confidence, Prediction
 from app.domain.provider import ProviderEvent, ProviderMarket, ProviderOutcome
 
 MARKET_ALIASES: dict[Market, tuple[str, ...]] = {
+    Market.OVER_1_5: ("over 1.5", "over1.5", "over 1.5 goals"),
     Market.OVER_2_5: ("over 2.5", "over2.5", "over 2.5 goals"),
     Market.BTTS: ("both teams to score", "btts", "gg", "yes"),
     Market.UNDER_2_5: ("under 2.5", "under2.5", "under 2.5 goals"),
     Market.UNDER_4_5: ("under 4.5", "under4.5", "under 4.5 goals"),
+    Market.DOUBLE_CHANCE: ("double chance",),
+    Market.MATCH_RESULT: ("match result", "1x2", "full time result"),
 }
 
 
@@ -32,6 +35,28 @@ class PredictionService:
                     continue
                 predictions.extend(self._from_market(event, provider_market, market))
 
+        return self._deduplicate(predictions)
+
+    def generate_all_available(self, events: list[ProviderEvent]) -> list[Prediction]:
+        predictions: list[Prediction] = []
+        for event in events:
+            for provider_market in event.markets:
+                if not provider_market.active:
+                    continue
+                for outcome in provider_market.outcomes:
+                    if not outcome.active or outcome.odds <= Decimal("1.00"):
+                        continue
+                    probability = self._implied_probability(outcome.odds)
+                    predictions.append(Prediction(
+                        id=self._prediction_id(event.id, provider_market.id, outcome.id),
+                        event_id=event.id, home_team=event.home_team, away_team=event.away_team,
+                        start_time=event.start_time, market=Market.ALL, market_id=provider_market.id,
+                        specifier=provider_market.specifier, outcome_id=outcome.id,
+                        selection=outcome.description, odds=outcome.odds, probability=probability,
+                        confidence=self._confidence(probability),
+                        reasons=(f"Available SportyBet market: {provider_market.description}",),
+                        market_name=provider_market.description,
+                    ))
         return self._deduplicate(predictions)
 
     def generate_all(self, events: list[ProviderEvent]) -> list[Prediction]:
@@ -78,6 +103,7 @@ class PredictionService:
                     odds=outcome.odds,
                     probability=probability,
                     confidence=confidence,
+                    market_name=provider_market.description,
                     reasons=(
                         "Candidate extracted from an active SportyBet market.",
                         f"Implied probability from odds: {probability:.1%}.",
@@ -96,6 +122,7 @@ class PredictionService:
         if description in {"over/under", "over under", "total goals", "total"}:
             line = PredictionService._specifier_value(specifier, "total")
             target_line = {
+                Market.OVER_1_5: "1.5",
                 Market.OVER_2_5: "2.5",
                 Market.UNDER_2_5: "2.5",
                 Market.UNDER_4_5: "4.5",
@@ -104,18 +131,26 @@ class PredictionService:
 
         if target == Market.BTTS and ("gg/ng" in description or description == "gg"):
             return True
+        if target == Market.DOUBLE_CHANCE and ("double chance" in description or description in {"1x", "x2", "12"}):
+            return True
+        if target == Market.MATCH_RESULT and ("match result" in description or "1x2" in description or "full time result" in description):
+            return True
 
         return False
 
     @staticmethod
     def _outcome_matches(outcome: ProviderOutcome, target: Market) -> bool:
         value = re.sub(r"[^a-z0-9.]+", " ", outcome.description.lower()).strip()
-        if target == Market.OVER_2_5:
+        if target in {Market.OVER_1_5, Market.OVER_2_5}:
             return value == "over" or value.startswith("over ")
         if target in {Market.UNDER_2_5, Market.UNDER_4_5}:
             return value == "under" or value.startswith("under ")
         if target == Market.BTTS:
             return value in {"yes", "gg", "goal goal", "both teams to score", "btts"}
+        if target == Market.DOUBLE_CHANCE:
+            return value in {"1x", "x2", "12"}
+        if target == Market.MATCH_RESULT:
+            return value in {"1", "x", "2", "home", "draw", "away"}
         return True
 
     @staticmethod
