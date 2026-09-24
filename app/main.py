@@ -28,7 +28,18 @@ settings = get_settings()
 
 configure_logfire()
 
-app = FastAPI(\n    title=settings.app_name,\n    version="0.1.0",\n    docs_url="/docs" if settings.docs_enabled else None,\n    redoc_url="/redoc" if settings.docs_enabled else None,\n    openapi_url="/openapi.json" if settings.docs_enabled else None,\n)\n\napp.add_middleware(\n    TrustedHostMiddleware,\n    allowed_hosts=settings.trusted_host_list,\n)
+app = FastAPI(
+    title=settings.app_name,
+    version="0.1.0",
+    docs_url="/docs" if settings.docs_enabled else None,
+    redoc_url="/redoc" if settings.docs_enabled else None,
+    openapi_url="/openapi.json" if settings.docs_enabled else None,
+)
+
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=settings.trusted_host_list,
+)
 logfire.instrument_fastapi(app)
 logfire.instrument_sqlalchemy(engine=engine)
 logfire.instrument_httpx()
@@ -101,8 +112,19 @@ async def request_context(request: Request, call_next):
                 response.headers["Retry-After"] = str(result.retry_after)
                 return response
         except Exception:
-            # Rate limiting must not take the API down when Redis is unavailable.
-            pass
+            if settings.rate_limit_fail_closed:
+                response = JSONResponse(
+                    status_code=503,
+                    content={
+                        "error": {
+                            "code": "rate_limit_unavailable",
+                            "message": "Request protection is temporarily unavailable",
+                        },
+                        "request_id": request_id,
+                    },
+                )
+                response.headers["X-Request-ID"] = request_id
+                return response
 
     try:
         response = await call_next(request)
