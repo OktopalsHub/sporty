@@ -1,10 +1,11 @@
 import secrets
+from pathlib import Path
 from uuid import uuid4
 
 import logfire
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.routes.analysis import router as analysis_router
@@ -178,9 +179,9 @@ app.include_router(weekly_safe_router, prefix=settings.api_prefix)
 
 
 @app.get("/", include_in_schema=False)
-async def root() -> dict[str, str]:
-    return {
-        "app": settings.app_name,
-        "status": "ok",
-        "docs": "/docs" if settings.docs_enabled else "",
-    }
+async def root() -> FileResponse:
+    """Serve the Sporty web interface at the application root."""
+    return FileResponse(
+        Path(__file__).parent / "ui" / "index.html",
+        media_type="text/html",
+    )

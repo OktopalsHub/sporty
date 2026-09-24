@@ -33,7 +33,8 @@ def test_root_path_responds_on_platform_host() -> None:
     response = client.get("/", headers={"host": "sporty.fastapicloud.dev"})
 
     assert response.status_code == 200
-    assert response.json()["app"] == "Sporty"
+    assert response.headers["content-type"].startswith("text/html")
+    assert "Build your SportyBet ticket" in response.text
 
 
 class FailingRateLimiter:
