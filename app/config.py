@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     app_name: str = "Sporty"
     app_env: str = "development"
     api_prefix: str = "/api/v1"
+    database_url: str = "sqlite:///./sporty.db"
     sportybet_base_url: str = "https://www.sportybet.com"
     sportybet_region: str = "ng"
     sportybet_timeout: float = 15.0

@@ -5,9 +5,12 @@ from pydantic import BaseModel
 
 from app.providers.sportybet.client import SportyBetClient, SportyBetError
 from app.services.ticket_builder import TicketBuildError, TicketBuilder
+from app.db import SessionLocal
+from app.services.ticket_history_service import TicketHistoryService
 from app.api.routes.selections import selection_service
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
+history_service = TicketHistoryService(SessionLocal)
 
 
 class TicketSelectionResponse(BaseModel):
@@ -36,6 +39,7 @@ async def build_ticket(session_id: str) -> TicketBuildResponse:
     builder = TicketBuilder(
         selection_service=selection_service,
         provider=SportyBetClient(),
+        history_service=history_service,
     )
 
     try:
