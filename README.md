@@ -402,3 +402,28 @@ X-API-Key: <strong-random-secret>
 ```
 
 Do not use a source-control value for `API_KEY`. Generate a new high-entropy secret and store it only in FastAPI Cloud or the deployment secret manager.
+
+## Phase 23 load and reliability testing
+
+Phase 23 adds a repeatable Locust load profile and a manual GitHub Actions workflow for API concurrency testing.
+
+The default profile intentionally exercises only:
+
+- `GET /api/v1/health`
+- `GET /api/v1/ready`
+
+This keeps automated load tests from creating prediction jobs or generating uncontrolled SportyBet upstream traffic.
+
+Run locally:
+
+```bash
+pip install -e ".[dev,loadtest]"
+docker compose up --build -d
+locust -f loadtest/locustfile.py --headless -u 25 -r 5 -t 60s
+```
+
+The GitHub Actions load test is manual. Open the **Load test** workflow and set concurrent users, spawn rate, and duration.
+
+Track p50, p95, p99 latency, throughput, failure rate, PostgreSQL connections, Redis connections, queue depth, worker duration, retries, and failed jobs. The suggested test sizes are smoke (5 users), baseline (25), sustained (100), and spike (250). These are test inputs, not production SLOs.
+
+Business endpoint load tests should use a staging feed or mocked SportyBet provider. Do not run high-volume generator tests against production.

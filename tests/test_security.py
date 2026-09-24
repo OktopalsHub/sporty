@@ -20,3 +20,20 @@ def test_unknown_host_is_rejected() -> None:
 
     assert response.status_code == 400
 
+
+class FailingRateLimiter:
+    async def check(self, key: str):
+        raise RuntimeError("redis unavailable")
+
+
+def test_rate_limit_fails_closed_when_enabled(monkeypatch) -> None:
+    from app import main
+
+    monkeypatch.setattr(main, "rate_limiter", FailingRateLimiter())
+    monkeypatch.setattr(main.settings, "rate_limit_fail_closed", True)
+
+    client = TestClient(main.app)
+    response = client.get("/api/v1/meta", headers={"host": "localhost"})
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "rate_limit_unavailable"
