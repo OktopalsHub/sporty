@@ -6,6 +6,7 @@ from app.api.routes.generators import router as generators_router
 from app.api.routes.health import router as health_router
 from app.api.routes.one_k import router as one_k_router
 from app.api.routes.predictions import router as predictions_router
+from app.api.routes.weekly_safe import router as weekly_safe_router
 from app.config import get_settings
 
 settings = get_settings()
@@ -17,3 +18,4 @@ app.include_router(analysis_router, prefix=settings.api_prefix)
 app.include_router(generators_router, prefix=settings.api_prefix)
 app.include_router(one_k_router, prefix=settings.api_prefix)
 app.include_router(five_k_router, prefix=settings.api_prefix)
+app.include_router(weekly_safe_router, prefix=settings.api_prefix)
