@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     database_pool_size: int = 10
     database_max_overflow: int = 20
     database_pool_timeout: int = 30
+    redis_url: str = "redis://localhost:6379/0"
+    redis_timeout: float = 1.0
+    rate_limit_requests: int = 120
+    rate_limit_window_seconds: int = 60
     api_key: str | None = None
     sportybet_base_url: str = "https://www.sportybet.com"
     sportybet_region: str = "ng"

@@ -36,40 +36,38 @@ For local development:
 DATABASE_URL=postgresql+psycopg://sporty:sporty@localhost:5432/sporty
 ```
 
-For Docker Compose, the API uses the PostgreSQL service automatically:
-
-```env
-DATABASE_URL=postgresql+psycopg://sporty:sporty@db:5432/sporty
-```
-
 The application does not create tables automatically at startup. Use Alembic to apply the schema before starting the API:
 
 ```bash
 alembic upgrade head
 ```
 
-If you already have a Phase 11 database created with `create_all`, verify that its schema matches the migration and then mark the initial migration as applied:
+## Redis
 
-```bash
-alembic stamp 0001_initial
+Redis is used for distributed API rate limiting.
+
+For local development:
+
+```env
+REDIS_URL=redis://localhost:6379/0
+RATE_LIMIT_REQUESTS=120
+RATE_LIMIT_WINDOW_SECONDS=60
 ```
 
-Create a new migration after changing SQLAlchemy models:
+Rate limits are enforced per API key when `X-API-Key` is configured, otherwise per client IP. The health and readiness endpoints are excluded. If Redis is temporarily unavailable, requests are allowed through so a cache/rate-limit dependency does not become a total API outage.
 
-```bash
-alembic revision --autogenerate -m "describe change"
-alembic upgrade head
-```
+The readiness endpoint checks both PostgreSQL and Redis.
 
 ## API health
 
-- `GET /api/v1/health` is the liveness check. It does not require the database.
-- `GET /api/v1/ready` is the readiness check. It verifies database connectivity.
-- Every API response includes an `X-Request-ID` header. Clients may send their own request ID for tracing.
+- `GET /api/v1/health` is the liveness check. It does not require PostgreSQL or Redis.
+- `GET /api/v1/ready` is the readiness check. It verifies PostgreSQL and Redis connectivity.
+- Every API response includes an `X-Request-ID` header.
+- Rate-limited responses return `429`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `Retry-After`.
 
 ## Docker
 
-Build and run the production-like PostgreSQL stack:
+Build and run the production-like PostgreSQL and Redis stack:
 
 ```bash
 docker compose up --build
@@ -85,8 +83,8 @@ The backend exposes a stable frontend-facing contract through FastAPI OpenAPI an
 
 - `GET /api/v1/meta` returns the supported markets and ticket strategies.
 - `GET /api/v1/health` is the liveness check.
-- `GET /api/v1/ready` is the database readiness check.
-- The API returns `X-Request-ID` on every response. A frontend can send the same header when tracing a request.
+- `GET /api/v1/ready` is the database and Redis readiness check.
+- The API returns `X-Request-ID` on every response.
 
 ### Selection flow
 
@@ -114,20 +112,15 @@ The frontend must keep the prediction `id`, `event_id`, `market_id`, `specifier`
 
 ### CORS
 
-Set `FRONTEND_ORIGINS` to a comma-separated list of allowed frontend origins:
-
-```env
-FRONTEND_ORIGINS=http://localhost:3000,http://localhost:5173
-```
+Set `FRONTEND_ORIGINS` to a comma-separated list of allowed frontend origins.
 
 FastAPI OpenAPI is available at `/docs` and `/openapi.json` for frontend client generation.
 
 ## CI
 
-GitHub Actions runs on pushes and pull requests. It installs the development dependencies, runs Ruff, runs the test suite with PostgreSQL, and applies the Alembic migrations against PostgreSQL.
+GitHub Actions runs on pushes and pull requests. It installs the development dependencies, starts PostgreSQL and Redis, runs Ruff, runs the test suite, and applies the Alembic migrations against PostgreSQL.
 
-The CI workflow is the minimum merge gate. A deployment should also run the same migration command against the target PostgreSQL database before serving traffic.
-
+The CI workflow is the minimum merge gate.
 
 ## Phase 15 production hardening
 
@@ -148,3 +141,7 @@ API_KEY=replace-with-a-secret
 ```
 
 Do not commit real API keys to the repository.
+
+## Phase 16 production reliability
+
+Phase 16 adds Redis-backed distributed rate limiting so multiple API instances share the same request budget. It also makes Redis part of readiness checks and local/CI infrastructure.

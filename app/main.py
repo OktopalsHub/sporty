@@ -16,9 +16,16 @@ from app.api.routes.predictions import router as predictions_router
 from app.api.routes.selections import router as selections_router
 from app.api.routes.tickets import router as tickets_router
 from app.api.routes.weekly_safe import router as weekly_safe_router
+from app.cache import get_redis
 from app.config import get_settings
+from app.rate_limit import RedisRateLimiter
 
 settings = get_settings()
+rate_limiter = RedisRateLimiter(
+    get_redis(),
+    limit=settings.rate_limit_requests,
+    window_seconds=settings.rate_limit_window_seconds,
+)
 
 app = FastAPI(title=settings.app_name, version="0.1.0")
 
@@ -56,6 +63,33 @@ async def request_context(request: Request, call_next):
                 response.headers["X-Request-ID"] = request_id
                 return response
 
+    if request.url.path.startswith(settings.api_prefix) and request.url.path not in {
+        f"{settings.api_prefix}/health",
+        f"{settings.api_prefix}/ready",
+    }:
+        client_id = request.headers.get("X-API-Key") or (request.client.host if request.client else "unknown")
+        try:
+            result = await rate_limiter.check(client_id)
+            if not result.allowed:
+                response = JSONResponse(
+                    status_code=429,
+                    content={
+                        "error": {
+                            "code": "rate_limit_exceeded",
+                            "message": "Too many requests",
+                        },
+                        "request_id": request_id,
+                    },
+                )
+                response.headers["X-Request-ID"] = request_id
+                response.headers["X-RateLimit-Limit"] = str(result.limit)
+                response.headers["X-RateLimit-Remaining"] = str(result.remaining)
+                response.headers["Retry-After"] = str(result.retry_after)
+                return response
+        except Exception:
+            # Rate limiting must not take the API down when Redis is unavailable.
+            pass
+
     try:
         response = await call_next(request)
     except Exception:
@@ -71,6 +105,13 @@ async def request_context(request: Request, call_next):
         )
     response.headers["X-Request-ID"] = request_id
     return response
+
+
+@app.on_event("shutdown")
+async def shutdown() -> None:
+    from app.cache import close_redis
+
+    await close_redis()
 
 
 app.include_router(health_router, prefix=settings.api_prefix)

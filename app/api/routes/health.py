@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.cache import check_redis
 from app.db import check_database
 
 router = APIRouter(tags=["health"])
@@ -12,6 +13,10 @@ async def health() -> dict[str, str]:
 
 @router.get("/ready")
 async def readiness() -> dict[str, str]:
-    if not check_database():
+    database_ready = check_database()
+    redis_ready = await check_redis()
+
+    if not database_ready or not redis_ready:
         return {"status": "not_ready"}
+
     return {"status": "ready"}
