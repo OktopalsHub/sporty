@@ -9,7 +9,6 @@ from app.domain.predictions import Confidence, Prediction
 from app.domain.provider import ProviderEvent, ProviderMarket, ProviderOutcome
 
 MARKET_ALIASES: dict[Market, tuple[str, ...]] = {
-    Market.OVER_1_5: ("over 1.5", "over1.5", "over 1.5 goals"),
     Market.OVER_2_5: ("over 2.5", "over2.5", "over 2.5 goals"),
     Market.BTTS: ("both teams to score", "btts", "gg", "yes"),
     Market.UNDER_2_5: ("under 2.5", "under2.5", "under 2.5 goals"),
@@ -97,7 +96,6 @@ class PredictionService:
         if description in {"over/under", "over under", "total goals", "total"}:
             line = PredictionService._specifier_value(specifier, "total")
             target_line = {
-                Market.OVER_1_5: "1.5",
                 Market.OVER_2_5: "2.5",
                 Market.UNDER_2_5: "2.5",
                 Market.UNDER_4_5: "4.5",
@@ -112,7 +110,7 @@ class PredictionService:
     @staticmethod
     def _outcome_matches(outcome: ProviderOutcome, target: Market) -> bool:
         value = re.sub(r"[^a-z0-9.]+", " ", outcome.description.lower()).strip()
-        if target in {Market.OVER_1_5, Market.OVER_2_5}:
+        if target == Market.OVER_2_5:
             return value == "over" or value.startswith("over ")
         if target in {Market.UNDER_2_5, Market.UNDER_4_5}:
             return value == "under" or value.startswith("under ")

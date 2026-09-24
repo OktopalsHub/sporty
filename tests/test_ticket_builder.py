@@ -23,11 +23,11 @@ def prediction(index: int, event_id: str | None = None) -> Prediction:
         home_team=f"Home {index}",
         away_team=f"Away {index}",
         start_time=datetime.now(timezone.utc),
-        market=Market.OVER_1_5,
+        market=Market.UNDER_4_5,
         market_id="18",
-        specifier="total=1.5",
+        specifier="total=4.5",
         outcome_id=str(index),
-        selection="Over 1.5",
+        selection="Under 4.5",
         odds=Decimal("1.50"),
         probability=0.80,
         confidence=Confidence.HIGH,
@@ -69,13 +69,13 @@ def provider_event(event_id: str = "event-1", outcome_id: str = "1") -> Provider
         markets=(
             ProviderMarket(
                 id="18",
-                description="Over/Under 1.5",
-                specifier="total=1.5",
+                description="Over/Under 4.5",
+                specifier="total=4.5",
                 active=True,
                 outcomes=(
                     ProviderOutcome(
                         id=outcome_id,
-                        description="Over 1.5",
+                        description="Under 4.5",
                         odds=Decimal("1.75"),
                         active=True,
                     ),
@@ -103,7 +103,7 @@ async def test_build_sends_exact_selected_provider_ids(selection_service) -> Non
         {
             "event_id": "event-1",
             "market_id": "18",
-            "specifier": "total=1.5",
+            "specifier": "total=4.5",
             "outcome_id": "1",
         }
     ]
