@@ -1,4 +1,6 @@
 import secrets
+
+import logfire
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
