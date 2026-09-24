@@ -13,6 +13,9 @@ def get_redis() -> Redis:
         decode_responses=True,
         socket_connect_timeout=settings.redis_timeout,
         socket_timeout=settings.redis_timeout,
+        socket_keepalive=True,
+        max_connections=settings.redis_max_connections,
+        health_check_interval=settings.redis_health_check_interval,
     )
 
 
