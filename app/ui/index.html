@@ -96,7 +96,7 @@ async function generate(strategy){
   setStatus("Generation started.");
   try{
     const hours=Number($("hours").value);
-    const data=await request("/generators/custom/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target_odds:target,hours,markets:["over_2_5","btts","under_2_5","under_4_5"]})});
+    const data=await request("/generators/custom/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target_odds:target,hours,markets:["over_2_5","btts","under_2_5","over_1_5"]})});
     if(token!==generationToken)return;
     predictions=data.selections||[];
     selected=new Map(predictions.map(p=>[p.id,p]));
