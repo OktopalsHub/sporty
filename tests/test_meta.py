@@ -12,16 +12,13 @@ def test_meta_exposes_frontend_markets_and_strategies() -> None:
     body = response.json()
     assert body["app_name"] == "Sporty"
     assert {item["id"] for item in body["markets"]} == {
-        "over_1_5",
         "over_2_5",
         "btts",
         "under_2_5",
         "under_4_5",
     }
     assert {item["id"] for item in body["strategies"]} == {
-        "1k",
-        "5k_random",
-        "weekly_safe",
+        "custom",
     }
 
 
