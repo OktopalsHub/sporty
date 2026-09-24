@@ -122,11 +122,11 @@ class OddsOptimizer:
         states: list[tuple[float, float, tuple[Prediction, ...]]],
         beam_width: int,
     ) -> list[tuple[float, float, tuple[Prediction, ...]]]:
-        seen: set[tuple[str, ...]] = set()
+        seen: set[frozenset[str]] = set()
         result: list[tuple[float, float, tuple[Prediction, ...]]] = []
 
         for state in states:
-            ids = tuple(item.id for item in state[2])
+            ids = frozenset(item.id for item in state[2])
             if ids in seen:
                 continue
             seen.add(ids)

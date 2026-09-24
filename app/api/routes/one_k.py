@@ -1,3 +1,4 @@
+import asyncio
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException
@@ -64,7 +65,7 @@ async def generate_1k(request: OneKRequest) -> OneKResponse:
         item for item in predictions if item.probability >= request.min_probability
     ]
 
-    ticket = OneKGenerator().generate(predictions)
+    ticket = await asyncio.to_thread(OneKGenerator().generate, predictions)
     if ticket is None:
         raise HTTPException(
             status_code=422,
