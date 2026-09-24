@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sporty</title>
+  <style>
+    :root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#eef2ff;background:#0b1020}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top right,#18234a 0,#0b1020 45%);min-height:100vh}
+    .wrap{max-width:1180px;margin:0 auto;padding:32px 20px 60px}.top{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:28px}
+    h1{font-size:42px;margin:0 0 8px}.muted{color:#9ca8c7}.badge{border:1px solid #33416b;border-radius:999px;padding:7px 12px;font-size:12px}
+    .panel{background:#11182d;border:1px solid #253152;border-radius:18px;padding:20px;box-shadow:0 16px 50px rgba(0,0,0,.22);margin-bottom:20px}
+    label{display:block;font-size:12px;color:#9ca8c7;margin-bottom:7px}input,select,button{font:inherit}
+    input,select{width:100%;background:#0b1020;border:1px solid #33416b;color:#eef2ff;border-radius:10px;padding:11px 12px}
+    .controls{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:12px;align-items:end}.actions{display:flex;gap:10px;flex-wrap:wrap}
+    button{border:0;border-radius:10px;padding:11px 16px;background:#eef2ff;color:#0b1020;font-weight:700;cursor:pointer}button.secondary{background:#263454;color:#eef2ff}button:disabled{opacity:.5;cursor:not-allowed}
+    .strategies{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.strategy{padding:16px;border:1px solid #2d3a60;border-radius:14px;background:#0e1528}
+    .strategy h3{margin:0 0 7px}.strategy p{margin:0 0 14px;font-size:13px;color:#9ca8c7}.strategy strong{font-size:18px}
+    .status{padding:10px 12px;border-radius:10px;background:#0d1427;color:#9ca8c7;margin-top:12px;white-space:pre-wrap}.status.error{color:#ffb4b4;border:1px solid #633a44}
+    .table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:760px}th,td{text-align:left;padding:11px 10px;border-bottom:1px solid #253152;font-size:13px}th{color:#9ca8c7;font-weight:600}
+    .pick{display:flex;align-items:center;gap:10px}.pick input{width:auto}.pill{display:inline-block;border:1px solid #33416b;border-radius:999px;padding:4px 8px;font-size:11px}
+    .empty{text-align:center;padding:35px;color:#7784a5}
+    @media(max-width:850px){.controls,.strategies{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><div class="badge">Sporty prediction engine</div><h1>Build your SportyBet ticket</h1><div class="muted">Generate predictions, review the exact selections, then build a ticket.</div></div>
+    <div class="badge" id="health">Checking API...</div>
+  </div>
+
+  <section class="panel">
+    <label for="apiKey">Production API key</label>
+    <div class="controls">
+      <input id="apiKey" type="password" autocomplete="off" placeholder="Enter your API key">
+      <div><label for="hours">Look ahead</label><select id="hours"><option value="24">24 hours</option><option value="72">3 days</option><option value="168" selected>7 days</option><option value="336">14 days</option></select></div>
+      <div><label for="pageSize">Games</label><select id="pageSize"><option>50</option><option selected>100</option></select></div>
+      <button id="saveKey" class="secondary">Save key</button>
+    </div>
+    <div class="status" id="status">The API key is kept only in this browser session.</div>
+  </section>
+
+  <section class="panel">
+    <h2>Strategies</h2>
+    <div class="strategies" id="strategies"><div class="empty">Loading strategies...</div></div>
+  </section>
+
+  <section class="panel">
+    <div class="top" style="margin-bottom:14px"><div><h2 style="margin:0">Generated selections</h2><div class="muted" id="summary">No selections yet.</div></div><div class="actions"><button id="clear" class="secondary">Clear</button><button id="build" disabled>Build ticket</button></div></div>
+    <div class="table-wrap"><table><thead><tr><th></th><th>Match</th><th>Market</th><th>Selection</th><th>Odds</th><th>Probability</th><th>Confidence</th></tr></thead><tbody id="results"><tr><td colspan="7" class="empty">Choose a strategy to generate predictions.</td></tr></tbody></table></div>
+  </section>
+
+  <section class="panel" id="ticketPanel" hidden>
+    <h2>Ticket</h2>
+    <div class="status" id="ticket"></div>
+  </section>
+</div>
+<script>
+const API="/api/v1";
+let predictions=[];
+let selected=new Map();
+const $=id=>document.getElementById(id);
+const keyInput=$("apiKey");
+let generationToken=0;
+let storageAvailable=true;
+try{keyInput.value=sessionStorage.getItem("sporty_api_key")||""}catch(e){storageAvailable=false}
+
+function setStatus(message,error=false){$("status").textContent=message;$("status").className="status"+(error?" error":"")}
+function headers(){const key=keyInput.value.trim();return key?{"X-API-Key":key}:{}}
+async function request(path,options={}){
+  const response=await fetch(API+path,{...options,headers:{...headers(),...(options.headers||{})}});
+  const body=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(body?.detail||body?.error?.message||"Request failed ("+response.status+")");
+  return body;
+}
+async function boot(){
+  try{
+    const health=await fetch(API+"/health"); $("health").textContent=health.ok?"API online":"API unavailable";
+  }catch(e){$("health").textContent="API unavailable"}
+  try{
+    const meta=await request("/meta");
+    $("strategies").innerHTML=meta.strategies.map(s=>'<div class="strategy"><h3>'+escapeHtml(s.label)+'</h3><p>'+escapeHtml(s.description)+'</p><strong>Target '+escapeHtml(s.target_odds||"")+'</strong><div style="margin-top:14px"><button onclick="generate(\''+s.id+'\')">Generate</button></div></div>').join("");
+    setStatus("Connected to "+meta.app_name+".");
+  }catch(e){
+    $("strategies").innerHTML='<div class="empty">Enter a valid API key, then save it.</div>';
+    setStatus(e.message,true);
+  }
+}
+function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]))}
+async function generate(strategy){
+  const token=++generationToken;
+  setStatus("Generating "+strategy+"...");
+  try{
+    const hours=$("hours").value,page_size=$("pageSize").value;
+    const paths={"1k":"/generators/1k/generate","5k_random":"/generators/5k/generate","weekly_safe":"/generators/weekly-safe/generate"};
+    const body={page:1,page_size:Number(page_size),hours:Number(hours)};
+    if(strategy==="5k_random") Object.assign(body,{min_probability:.55,candidate_pool_size:150,attempts:25});
+    if(strategy==="weekly_safe") Object.assign(body,{min_probability:.75,min_days:3,candidate_limit_per_day:40});
+    const data=await request(paths[strategy],{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(token!==generationToken)return;
+    predictions=data.selections||[];
+    selected=new Map(predictions.map(p=>[p.id,p]));
+    render();
+    setStatus("Generated "+predictions.length+" selections. Review them before building the ticket.");
+  }catch(e){setStatus(e.message,true)}
+}
+function render(){
+  $("summary").textContent=predictions.length+" generated selection(s), "+selected.size+" selected.";
+  $("build").disabled=selected.size===0;
+  $("results").innerHTML=predictions.length?predictions.map(p=>'<tr><td><div class="pick"><input type="checkbox" '+(selected.has(p.id)?"checked":"")+' onchange="toggle(\''+p.id+'\',this.checked)"></div></td><td>'+escapeHtml(p.home_team)+" vs "+escapeHtml(p.away_team)+'</td><td><span class="pill">'+escapeHtml(p.market)+'</span></td><td>'+escapeHtml(p.selection)+'</td><td>'+escapeHtml(p.odds)+'</td><td>'+Math.round(Number(p.probability)*100)+'%</td><td>'+escapeHtml(p.confidence)+'</td></tr>').join(""):'<tr><td colspan="7" class="empty">No predictions returned.</td></tr>';
+}
+function toggle(id,on){if(on)selected.set(id,predictions.find(p=>p.id===id));else selected.delete(id);render()}
+$("saveKey").onclick=async()=>{try{sessionStorage.setItem("sporty_api_key",keyInput.value.trim());storageAvailable=true}catch(e){storageAvailable=false}await boot()}
+$("clear").onclick=()=>{generationToken++;predictions=[];selected.clear();$("ticketPanel").hidden=true;render();setStatus("Selections cleared.")}
+$("build").onclick=async()=>{
+  setStatus("Creating selection session...");
+  try{
+    const session=await request("/selections/sessions",{method:"POST"});
+    for(const p of selected.values()){
+      const item={...p,start_time:p.start_time||new Date().toISOString()};
+      await request("/selections/sessions/"+session.session_id,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(item)});
+    }
+    const ticket=await request("/tickets/"+session.session_id+"/build",{method:"POST"});
+    $("ticketPanel").hidden=false;
+    $("ticket").textContent="Combined odds: "+ticket.combined_odds+"\nSelections: "+ticket.selection_count+"\n\n"+JSON.stringify(ticket.provider_response,null,2);
+    setStatus("Ticket built successfully.");
+  }catch(e){setStatus(e.message,true)}
+}
+boot();
+</script>
+</body>
+</html>
