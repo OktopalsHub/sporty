@@ -1,0 +1,12 @@
+# Keep deployment small and exclude local development artifacts.
+.git/
+.github/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.pyc
+*.db
+.env
+.venv/
+venv/
+sporty_postgres/
