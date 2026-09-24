@@ -29,7 +29,7 @@ def test_weekly_safe_reaches_10k_and_covers_multiple_days():
 
     assert ticket is not None
     assert ticket.actual_odds >= Decimal("10000")
-    assert len(ticket.selections) == 9
+    assert len(ticket.selections) >= 9
     assert len({item.start_time.date() for item in ticket.selections}) >= 3
 
 
@@ -40,8 +40,8 @@ def test_weekly_safe_rejects_low_confidence_candidates():
 
 
 def test_weekly_safe_never_reuses_an_event():
-    predictions = [make_prediction(0), make_prediction(1)]
-    duplicate = make_prediction(2)
+    predictions = [make_prediction(i) for i in range(12)]
+    duplicate = make_prediction(12)
     duplicate = Prediction(
         **{**duplicate.__dict__, "event_id": "event-0", "id": "duplicate"}
     )

@@ -1,4 +1,6 @@
-from datetime import datetime\nfrom decimal import Decimal\nimport hashlib
+from datetime import datetime
+from decimal import Decimal
+import hashlib
 
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, Field
@@ -17,7 +19,8 @@ selection_service = SelectionService()
 
 class SelectionInput(BaseModel):
     id: str = Field(min_length=1)
-    event_id: str = Field(min_length=1)\n    start_time: datetime
+    event_id: str = Field(min_length=1)
+    start_time: datetime
     home_team: str
     away_team: str
     market: Market
@@ -46,8 +49,7 @@ def _to_prediction(item: SelectionInput) -> Prediction:
     # start_time is not part of the Phase 9 client contract yet. Selection
     # keeps the exact generated market/outcome IDs and odds for later ticket
     # building; the event date can be refreshed when booking is implemented.
-    from datetime import datetime, timezone
-
+    
     expected_id = hashlib.sha256(
         f"{item.event_id}:{item.market_id}:{item.outcome_id}".encode()
     ).hexdigest()[:24]

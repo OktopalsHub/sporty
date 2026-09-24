@@ -12,12 +12,15 @@ class RateLimitResult:
 
 
 class RedisRateLimiter:
-    def __init__(self, redis: Redis, limit: int, window_seconds: int) -> None:
+    def __init__(self, redis: Redis | None, limit: int, window_seconds: int) -> None:
         self.redis = redis
         self.limit = limit
         self.window_seconds = window_seconds
 
     async def check(self, key: str) -> RateLimitResult:
+        if self.redis is None:
+            raise RuntimeError("Redis client is not configured")
+
         bucket = f"rate-limit:{key}"
         count = await self.redis.incr(bucket)
 

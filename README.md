@@ -443,3 +443,11 @@ The deployment workflow:
 - keeps manual deployment available through `workflow_dispatch`.
 
 Configure the `production` environment and its deployment secrets before enabling production releases. See `docs/phase-25-release-automation.md` for the release checklist.
+
+## Phase 26 production verification
+
+Phase 26 adds a manual GitHub Actions smoke test for the deployed production API. It checks liveness, readiness, API key enforcement, authenticated API access, and optional Swagger documentation exposure.
+
+Run **Production verification** after a production deployment and provide the production API base URL. The workflow reads the production API key from the protected GitHub `production` environment and never accepts the key as an input.
+
+See `docs/phase-26-production-verification.md` for the release sequence and rollback checks.
