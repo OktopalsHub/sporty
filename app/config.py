@@ -56,6 +56,20 @@ class Settings(BaseSettings):
     def _force_psycopg_driver(cls, value: str) -> str:
         return normalize_database_url(value)
 
+    @field_validator("trusted_hosts", mode="after")
+    @classmethod
+    def _ensure_platform_host(cls, value: str) -> str:
+        """Always allow the FastAPI Cloud platform domain.
+
+        An env var (or stale .env) may set TRUSTED_HOSTS to a value that
+        omits the deployment domain, which makes TrustedHostMiddleware
+        reject every real request with 400 while the app still boots.
+        """
+        hosts = [host.strip() for host in value.split(",") if host.strip()]
+        if "*.fastapicloud.dev" not in hosts:
+            hosts.append("*.fastapicloud.dev")
+        return ",".join(hosts)
+
     def validate_production(self) -> None:
         if self.app_env.lower() != "production":
             return

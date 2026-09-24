@@ -28,6 +28,14 @@ def test_platform_host_is_accepted() -> None:
     assert response.status_code == 200
 
 
+def test_root_path_responds_on_platform_host() -> None:
+    client = TestClient(app)
+    response = client.get("/", headers={"host": "sporty.fastapicloud.dev"})
+
+    assert response.status_code == 200
+    assert response.json()["app"] == "Sporty"
+
+
 class FailingRateLimiter:
     async def check(self, key: str):
         raise RuntimeError("redis unavailable")

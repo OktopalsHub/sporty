@@ -175,3 +175,12 @@ app.include_router(generators_router, prefix=settings.api_prefix)
 app.include_router(one_k_router, prefix=settings.api_prefix)
 app.include_router(five_k_router, prefix=settings.api_prefix)
 app.include_router(weekly_safe_router, prefix=settings.api_prefix)
+
+
+@app.get("/", include_in_schema=False)
+async def root() -> dict[str, str]:
+    return {
+        "app": settings.app_name,
+        "status": "ok",
+        "docs": "/docs" if settings.docs_enabled else "",
+    }

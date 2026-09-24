@@ -29,6 +29,14 @@ def test_default_trusted_hosts_include_platform_wildcard() -> None:
     assert "localhost" in default.split(",")
 
 
+def test_platform_host_survives_restrictive_env_override() -> None:
+    # An env var like TRUSTED_HOSTS=localhost must not be able to lock the
+    # deployed app out of its own domain (it boots, but 400s every request).
+    settings = Settings(trusted_hosts="localhost,127.0.0.1")
+    assert "*.fastapicloud.dev" in settings.trusted_host_list
+    assert settings.trusted_host_list[0] == "localhost"
+
+
 def test_bare_postgresql_url_is_forced_to_psycopg_driver() -> None:
     settings = Settings(database_url="postgresql://user:pass@localhost:5432/sporty")
     assert settings.database_url == "postgresql+psycopg://user:pass@localhost:5432/sporty"
