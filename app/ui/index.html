@@ -35,7 +35,7 @@
     <div class="controls">
       <input id="apiKey" type="password" autocomplete="off" placeholder="Enter your API key">
       <div><label for="hours">Look ahead</label><select id="hours"><option value="24">24 hours</option><option value="72">3 days</option><option value="168" selected>7 days</option><option value="336">14 days</option></select></div>
-      <div><label for="pageSize">Games</label><select id="pageSize"><option>50</option><option selected>100</option></select></div>
+      <div><label for="pageSize">Games</label><select id="pageSize"><option selected>25</option></select></div>
       <button id="saveKey" class="secondary">Save key</button>
     </div>
     <div class="status" id="status">The API key is kept only in this browser session.</div><div class="progress" id="generationProgress"><div class="progress-head"><strong id="progressTitle">Generating...</strong><span id="progressTime">0s</span></div><div class="progress-bar"><div class="progress-fill"></div></div><div class="muted" id="progressDetail" style="margin-top:7px;font-size:12px">Starting provider request...</div></div>
@@ -98,7 +98,7 @@ async function generate(strategy){
     const body={page:1,page_size:Number(page_size),hours:Number(hours)};
     if(strategy==="5k_random") Object.assign(body,{min_probability:.55,candidate_pool_size:150,attempts:25});
     if(strategy==="weekly_safe") Object.assign(body,{min_probability:.75,min_days:3,candidate_limit_per_day:40});
-    setGenerationProgress(true,"Generating "+strategy+"...","Provider data received. Building and filtering predictions now.");
+    setGenerationProgress(true,"Generating "+strategy+"...","Sending request to the prediction provider...");
     const data=await request(paths[strategy],{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     if(token!==generationToken)return;
     predictions=data.selections||[];
