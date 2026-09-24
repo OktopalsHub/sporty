@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from app.domain.markets import Market
 from app.domain.predictions import Confidence, Prediction
-from app.domain.provider import ProviderEvent, ProviderMarket
+from app.domain.provider import ProviderEvent, ProviderMarket, ProviderOutcome
 
 MARKET_ALIASES: dict[Market, tuple[str, ...]] = {
     Market.OVER_1_5: ("over 1.5", "over1.5", "over 1.5 goals"),
@@ -123,7 +123,7 @@ class PredictionService:
     @staticmethod
     def _specifier_value(specifier: str, key: str) -> str | None:
         match = re.search(
-            rf"(?:^|[;|,])\\s*{re.escape(key)}\\s*=\\s*(-?\\d+(?:\\.\\d+)?)",
+            rf"(?:^|[;|,])\s*{re.escape(key)}\s*=\s*(-?\d+(?:\.\d+)?)",
             specifier,
         )
         return match.group(1) if match else None
