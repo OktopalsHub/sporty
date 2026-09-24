@@ -30,8 +30,9 @@ class ParseSportyBetClient:
         self.base_url = (
             base_url or settings.parse_api_base_url
         ).rstrip("/")
-        self.timeout = (
-            timeout if timeout is not None else settings.sportybet_timeout
+        self.timeout = max(
+            45.0,
+            timeout if timeout is not None else settings.sportybet_timeout,
         )
         self.min_interval = (
             min_interval
@@ -87,6 +88,12 @@ class ParseSportyBetClient:
                             await asyncio.sleep(0.5 * (2**attempt))
                             continue
 
+                    if response.status_code >= 400:
+                        detail = response.text[:500].replace("\n", " ")
+                        raise SportyBetError(
+                            f"Parse provider returned HTTP {response.status_code}: {detail}"
+                        )
+
                     response.raise_for_status()
                     payload = response.json()
                     if not isinstance(payload, dict):
@@ -112,7 +119,7 @@ class ParseSportyBetClient:
                     break
 
             raise SportyBetError(
-                "Parse SportyBet request failed: "
+                f"Parse SportyBet request failed for {endpoint}: "
                 f"{last_error or 'unknown error'}"
             ) from last_error
 
@@ -126,7 +133,9 @@ class ParseSportyBetClient:
     ) -> tuple[list[ProviderEvent], int]:
         params: dict[str, Any] = {
             "page": page,
-            "page_size": min(page_size, 100),
+            # Keep each provider response bounded. The Parse endpoint returns
+            # a flat row for every selectable market outcome.
+            "page_size": min(page_size, 25),
             "hours": hours,
         }
         if market_ids:

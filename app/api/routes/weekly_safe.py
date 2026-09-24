@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 
 from app.domain.markets import Market
 from app.domain.predictions import Confidence, Prediction
+from app.domain.provider import ProviderEvent
 from app.providers.sportybet.client import SportyBetClient, SportyBetError
 from app.services.prediction_service import PredictionService
 from app.services.weekly_safe_generator import WeeklySafeGenerator
@@ -12,7 +13,7 @@ router = APIRouter(prefix="/generators/weekly-safe", tags=["generators"])
 
 class WeeklySafeRequest(BaseModel):
     page: int = Field(default=1, ge=1)
-    page_size: int = Field(default=100, ge=1, le=100)
+    page_size: int = Field(default=25, ge=1, le=25)
     hours: int = Field(default=168, ge=1, le=720)
     min_probability: float = Field(default=0.75, ge=0.0, le=1.0)
     min_confidence: Confidence = Confidence.HIGH
@@ -51,11 +52,38 @@ async def generate_weekly_safe(request: WeeklySafeRequest) -> WeeklySafeResponse
     service = PredictionService()
 
     try:
-        events, _ = await client.get_upcoming_events(
-            page=request.page,
-            page_size=request.page_size,
-            hours=request.hours,
-        )
+        # Fetch only the two market families used by the weekly strategy.
+        # This keeps Parse responses small enough for the hosted API timeout.
+        market_events: dict[str, ProviderEvent] = {}
+        for market_filter in ("Over/Under", "GG/NG"):
+            filtered_events, _ = await client.get_upcoming_events(
+                page=request.page,
+                page_size=request.page_size,
+                hours=request.hours,
+                market_ids=market_filter,
+            )
+            for event in filtered_events:
+                existing = market_events.get(event.id)
+                if existing is None:
+                    market_events[event.id] = event
+                else:
+                    merged_markets = tuple(existing.markets) + tuple(
+                        market for market in event.markets
+                        if (market.id, market.specifier) not in {
+                            (item.id, item.specifier) for item in existing.markets
+                        }
+                    )
+                    market_events[event.id] = ProviderEvent(
+                        id=existing.id,
+                        tournament_id=existing.tournament_id,
+                        tournament_name=existing.tournament_name,
+                        home_team=existing.home_team,
+                        away_team=existing.away_team,
+                        start_time=existing.start_time,
+                        status=existing.status,
+                        markets=merged_markets,
+                    )
+        events = list(market_events.values())
     except SportyBetError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 

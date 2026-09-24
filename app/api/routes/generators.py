@@ -12,7 +12,7 @@ router = APIRouter(prefix="/generators", tags=["generators"])
 
 class GeneratorRequest(BaseModel):
     page: int = Field(default=1, ge=1)
-    page_size: int = Field(default=100, ge=1, le=100)
+    page_size: int = Field(default=25, ge=1, le=25)
     hours: int = Field(default=168, ge=1, le=720)
     min_probability: float = Field(default=0.0, ge=0.0, le=1.0)
     confidence: list[Confidence] | None = None
@@ -45,10 +45,12 @@ async def _generate(market: Market, request: GeneratorRequest) -> GeneratorRespo
     service = PredictionService()
 
     try:
+        market_filter = "GG/NG" if market == Market.BTTS else "Over/Under"
         events, _ = await client.get_upcoming_events(
             page=request.page,
             page_size=request.page_size,
             hours=request.hours,
+            market_ids=market_filter,
         )
     except SportyBetError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
