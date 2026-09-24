@@ -16,7 +16,7 @@
     button{border:0;border-radius:10px;padding:11px 16px;background:#eef2ff;color:#0b1020;font-weight:700;cursor:pointer}button.secondary{background:#263454;color:#eef2ff}button:disabled{opacity:.5;cursor:not-allowed}
     .strategies{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.strategy{padding:16px;border:1px solid #2d3a60;border-radius:14px;background:#0e1528}
     .strategy h3{margin:0 0 7px}.strategy p{margin:0 0 14px;font-size:13px;color:#9ca8c7}.strategy strong{font-size:18px}
-    .status{padding:10px 12px;border-radius:10px;background:#0d1427;color:#9ca8c7;margin-top:12px;white-space:pre-wrap}.status.error{color:#ffb4b4;border:1px solid #633a44}
+    .status{padding:10px 12px;border-radius:10px;background:#0d1427;color:#9ca8c7;margin-top:12px;white-space:pre-wrap}.status.error{color:#ffb4b4;border:1px solid #633a44}.progress{display:none;margin-top:12px}.progress.active{display:block}.progress-head{display:flex;justify-content:space-between;gap:12px;margin-bottom:8px}.progress-bar{height:7px;border-radius:999px;background:#1d2948;overflow:hidden}.progress-fill{height:100%;width:35%;border-radius:999px;background:#eef2ff;animation:progressPulse 1.4s ease-in-out infinite}@keyframes progressPulse{0%{transform:translateX(-120%)}100%{transform:translateX(320%)}}
     .table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:760px}th,td{text-align:left;padding:11px 10px;border-bottom:1px solid #253152;font-size:13px}th{color:#9ca8c7;font-weight:600}
     .pick{display:flex;align-items:center;gap:10px}.pick input{width:auto}.pill{display:inline-block;border:1px solid #33416b;border-radius:999px;padding:4px 8px;font-size:11px}
     .empty{text-align:center;padding:35px;color:#7784a5}
@@ -38,7 +38,7 @@
       <div><label for="pageSize">Games</label><select id="pageSize"><option>50</option><option selected>100</option></select></div>
       <button id="saveKey" class="secondary">Save key</button>
     </div>
-    <div class="status" id="status">The API key is kept only in this browser session.</div>
+    <div class="status" id="status">The API key is kept only in this browser session.</div><div class="progress" id="generationProgress"><div class="progress-head"><strong id="progressTitle">Generating...</strong><span id="progressTime">0s</span></div><div class="progress-bar"><div class="progress-fill"></div></div><div class="muted" id="progressDetail" style="margin-top:7px;font-size:12px">Starting provider request...</div></div>
   </section>
 
   <section class="panel">
@@ -62,11 +62,11 @@ let predictions=[];
 let selected=new Map();
 const $=id=>document.getElementById(id);
 const keyInput=$("apiKey");
-let generationToken=0;
+let generationToken=0;let generationTimer=null;let generationStartedAt=0;
 let storageAvailable=true;
 try{keyInput.value=sessionStorage.getItem("sporty_api_key")||""}catch(e){storageAvailable=false}
 
-function setStatus(message,error=false){$("status").textContent=message;$("status").className="status"+(error?" error":"")}
+function setStatus(message,error=false){$("status").textContent=message;$("status").className="status"+(error?" error":"")}function setGenerationProgress(active,title="Generating...",detail="Starting provider request..."){const box=$("generationProgress");box.classList.toggle("active",active);if(!active){if(generationTimer)clearInterval(generationTimer);generationTimer=null;return}$("progressTitle").textContent=title;$("progressDetail").textContent=detail;generationStartedAt=Date.now();$("progressTime").textContent="0s";if(generationTimer)clearInterval(generationTimer);generationTimer=setInterval(()=>{$("progressTime").textContent=Math.floor((Date.now()-generationStartedAt)/1000)+"s"},1000)}
 function headers(){const key=keyInput.value.trim();return key?{"X-API-Key":key}:{}}
 async function request(path,options={}){
   const response=await fetch(API+path,{...options,headers:{...headers(),...(options.headers||{})}});
@@ -90,20 +90,23 @@ async function boot(){
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]))}
 async function generate(strategy){
   const token=++generationToken;
-  setStatus("Generating "+strategy+"...");
+  setGenerationProgress(true,"Generating "+strategy+"...","Fetching upcoming SportyBet fixtures and markets. This can take a little while.");
+  setStatus("Generation started for "+strategy+".");
   try{
     const hours=$("hours").value,page_size=$("pageSize").value;
     const paths={"1k":"/generators/1k/generate","5k_random":"/generators/5k/generate","weekly_safe":"/generators/weekly-safe/generate"};
     const body={page:1,page_size:Number(page_size),hours:Number(hours)};
     if(strategy==="5k_random") Object.assign(body,{min_probability:.55,candidate_pool_size:150,attempts:25});
     if(strategy==="weekly_safe") Object.assign(body,{min_probability:.75,min_days:3,candidate_limit_per_day:40});
+    setGenerationProgress(true,"Generating "+strategy+"...","Provider data received. Building and filtering predictions now.");
     const data=await request(paths[strategy],{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     if(token!==generationToken)return;
     predictions=data.selections||[];
     selected=new Map(predictions.map(p=>[p.id,p]));
     render();
+    setGenerationProgress(false);
     setStatus("Generated "+predictions.length+" selections. Review them before building the ticket.");
-  }catch(e){setStatus(e.message,true)}
+  }catch(e){setGenerationProgress(false);setStatus(e.message,true)}
 }
 function render(){
   $("summary").textContent=predictions.length+" generated selection(s), "+selected.size+" selected.";
@@ -112,7 +115,7 @@ function render(){
 }
 function toggle(id,on){if(on)selected.set(id,predictions.find(p=>p.id===id));else selected.delete(id);render()}
 $("saveKey").onclick=async()=>{try{sessionStorage.setItem("sporty_api_key",keyInput.value.trim());storageAvailable=true}catch(e){storageAvailable=false}await boot()}
-$("clear").onclick=()=>{generationToken++;predictions=[];selected.clear();$("ticketPanel").hidden=true;render();setStatus("Selections cleared.")}
+$("clear").onclick=()=>{generationToken++;setGenerationProgress(false);predictions=[];selected.clear();$("ticketPanel").hidden=true;render();setStatus("Selections cleared.")}
 $("build").onclick=async()=>{
   setStatus("Creating selection session...");
   try{
