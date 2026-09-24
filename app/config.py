@@ -38,11 +38,14 @@ class Settings(BaseSettings):
     trusted_hosts: str = "localhost,127.0.0.1,testserver,*.fastapicloud.dev"
     security_headers_enabled: bool = True
     rate_limit_fail_closed: bool = True
+    sportybet_provider: str = "direct"
     sportybet_base_url: str = "https://www.sportybet.com"
     sportybet_region: str = "ng"
     sportybet_timeout: float = 15.0
     sportybet_min_interval: float = 0.25
     sportybet_max_retries: int = 3
+    parse_api_key: str | None = None
+    parse_api_base_url: str = "https://api.parse.bot/scraper/8e652912-d760-4522-85ce-071e539a9c12"
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.5-flash"
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
