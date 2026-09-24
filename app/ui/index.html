@@ -48,7 +48,7 @@
 
   <section class="panel">
     <div class="top" style="margin-bottom:14px"><div><h2 style="margin:0">Generated selections</h2><div class="muted" id="summary">No selections yet.</div></div><div class="actions"><button id="clear" class="secondary">Clear</button><button id="build" disabled>Build ticket</button></div></div>
-    <div class="table-wrap"><table><thead><tr><th></th><th>Match</th><th>Market</th><th>Selection</th><th>Odds</th><th>Probability</th><th>Confidence</th></tr></thead><tbody id="results"><tr><td colspan="7" class="empty">Choose a strategy to generate predictions.</td></tr></tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th></th><th>Match</th><th>Market</th><th>Selection</th><th>Odds</th><th>Probability</th><th>Confidence</th></tr></thead><tbody id="results"><tr><td colspan="7" class="empty">Enter your target odds and generate a ticket from the priority markets.</td></tr></tbody></table></div>
   </section>
 
   <section class="panel" id="ticketPanel" hidden>
@@ -81,7 +81,7 @@ async function boot(){
   try{
     const meta=await request("/meta");
     $("strategies").innerHTML=meta.strategies.map(s=>'<div class="strategy"><h3>'+escapeHtml(s.label)+'</h3><p>'+escapeHtml(s.description)+'</p><strong>Target '+escapeHtml(s.target_odds||"")+'</strong><div style="margin-top:14px"><button onclick="generate(\''+s.id+'\')">Generate</button></div></div>').join("");
-    setStatus("Connected to "+meta.app_name+".");
+    setStatus("Connected to "+meta.app_name+". Priority markets: Over 2.5, BTTS, Under 2.5 and Under 4.5.");
   }catch(e){
     $("strategies").innerHTML='<div class="empty">Enter a valid API key, then save it.</div>';
     setStatus(e.message,true);
@@ -90,47 +90,17 @@ async function boot(){
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]))}
 async function generate(strategy){
   const token=++generationToken;
-  setGenerationProgress(true,"Generating "+strategy+"...","Fetching upcoming SportyBet fixtures and markets. This can take a little while.");
-  setStatus("Generation started for "+strategy+".");
+  const target=Number($("targetOdds").value);
+  if(!Number.isFinite(target)||target<=1){setStatus("Target odds must be greater than 1.",true);return}
+  setGenerationProgress(true,"Building "+target+" odds...","Fetching priority markets until a valid combination is found.");
+  setStatus("Generation started.");
   try{
-    const hours=$("hours").value,page_size=$("pageSize").value;
-    const paths={"1k":"/generators/1k/generate","5k_random":"/generators/5k/generate","weekly_safe":"/generators/weekly-safe/generate"};
-    const body={page:1,page_size:Number(page_size),hours:Number(hours)};
-    if(strategy==="5k_random") Object.assign(body,{min_probability:.55,candidate_pool_size:150,attempts:25});
-    if(strategy==="weekly_safe") Object.assign(body,{min_probability:.75,min_days:3,candidate_limit_per_day:40});
-    setGenerationProgress(true,"Generating "+strategy+"...","Sending request to the prediction provider...");
-    const data=await request(paths[strategy],{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const hours=Number($("hours").value);
+    const data=await request("/generators/custom/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target_odds:target,hours,markets:["over_2_5","btts","under_2_5","under_4_5"]})});
     if(token!==generationToken)return;
     predictions=data.selections||[];
     selected=new Map(predictions.map(p=>[p.id,p]));
-    render();
-    setGenerationProgress(false);
-    setStatus("Generated "+predictions.length+" selections. Review them before building the ticket.");
+    render();setGenerationProgress(false);
+    setStatus("Generated "+predictions.length+" selections for target odds "+data.actual_odds+".");
   }catch(e){setGenerationProgress(false);setStatus(e.message,true)}
 }
-function render(){
-  $("summary").textContent=predictions.length+" generated selection(s), "+selected.size+" selected.";
-  $("build").disabled=selected.size===0;
-  $("results").innerHTML=predictions.length?predictions.map(p=>'<tr><td><div class="pick"><input type="checkbox" '+(selected.has(p.id)?"checked":"")+' onchange="toggle(\''+p.id+'\',this.checked)"></div></td><td>'+escapeHtml(p.home_team)+" vs "+escapeHtml(p.away_team)+'</td><td><span class="pill">'+escapeHtml(p.market)+'</span></td><td>'+escapeHtml(p.selection)+'</td><td>'+escapeHtml(p.odds)+'</td><td>'+Math.round(Number(p.probability)*100)+'%</td><td>'+escapeHtml(p.confidence)+'</td></tr>').join(""):'<tr><td colspan="7" class="empty">No predictions returned.</td></tr>';
-}
-function toggle(id,on){if(on)selected.set(id,predictions.find(p=>p.id===id));else selected.delete(id);render()}
-$("saveKey").onclick=async()=>{try{sessionStorage.setItem("sporty_api_key",keyInput.value.trim());storageAvailable=true}catch(e){storageAvailable=false}await boot()}
-$("clear").onclick=()=>{generationToken++;setGenerationProgress(false);predictions=[];selected.clear();$("ticketPanel").hidden=true;render();setStatus("Selections cleared.")}
-$("build").onclick=async()=>{
-  setStatus("Creating selection session...");
-  try{
-    const session=await request("/selections/sessions",{method:"POST"});
-    for(const p of selected.values()){
-      const item={...p,start_time:p.start_time||new Date().toISOString()};
-      await request("/selections/sessions/"+session.session_id,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(item)});
-    }
-    const ticket=await request("/tickets/"+session.session_id+"/build",{method:"POST"});
-    $("ticketPanel").hidden=false;
-    $("ticket").textContent="Combined odds: "+ticket.combined_odds+"\nSelections: "+ticket.selection_count+"\n\n"+JSON.stringify(ticket.provider_response,null,2);
-    setStatus("Ticket built successfully.");
-  }catch(e){setStatus(e.message,true)}
-}
-boot();
-</script>
-</body>
-</html>
