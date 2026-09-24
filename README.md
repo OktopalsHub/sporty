@@ -54,7 +54,7 @@ RATE_LIMIT_REQUESTS=120
 RATE_LIMIT_WINDOW_SECONDS=60
 ```
 
-Rate limits are enforced per API key when `X-API-Key` is configured, otherwise per client IP. The health and readiness endpoints are excluded. If Redis is temporarily unavailable, requests are allowed through so a cache/rate-limit dependency does not become a total API outage.
+Rate limits are enforced per API key when `X-API-Key` is configured, otherwise per client IP. The health and readiness endpoints are excluded. If Redis is temporarily unavailable and `RATE_LIMIT_FAIL_CLOSED=true`, protected requests return `503` until request protection is available again.
 
 The readiness endpoint checks both PostgreSQL and Redis.
 

@@ -37,6 +37,14 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
+    def validate_production(self) -> None:
+        if self.app_env.lower() != "production":
+            return
+        if not self.api_key:
+            raise ValueError("API_KEY must be configured when APP_ENV=production")
+        if not self.trusted_host_list:
+            raise ValueError("TRUSTED_HOSTS must contain at least one host in production")
+
     @property
     def frontend_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.frontend_origins.split(",") if origin.strip()]
