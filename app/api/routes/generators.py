@@ -28,6 +28,7 @@ class GeneratedPredictionResponse(BaseModel):
     home_team: str
     away_team: str
     market: Market
+    market_name: str | None = None
     market_id: str
     specifier: str | None
     outcome_id: str
@@ -47,14 +48,10 @@ class GeneratorResponse(BaseModel):
 async def _generate(market: Market, request: GeneratorRequest) -> GeneratorResponse:
     client = SportyBetClient()
     service = PredictionService()
-
     try:
         market_filter = "GG/NG" if market == Market.BTTS else "Over/Under"
         events, _ = await client.get_upcoming_events(
-            page=request.page,
-            page_size=request.page_size,
-            hours=request.hours,
-            market_ids=market_filter,
+            page=request.page, page_size=request.page_size, hours=request.hours, market_ids=market_filter
         )
     except SportyBetError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -66,29 +63,25 @@ async def _generate(market: Market, request: GeneratorRequest) -> GeneratorRespo
         min_probability=request.min_probability,
         confidence=set(request.confidence) if request.confidence else None,
     )
-
     return GeneratorResponse(
         market=result.market,
         total_candidates=result.total_candidates,
         predictions=[
             GeneratedPredictionResponse(
-                id=item.id,
-                event_id=item.event_id,
-                home_team=item.home_team,
-                away_team=item.away_team,
-                market=item.market,
-                market_id=item.market_id,
-                specifier=item.specifier,
-                outcome_id=item.outcome_id,
-                selection=item.selection,
-                odds=str(item.odds),
-                probability=item.probability,
-                confidence=item.confidence,
-                reasons=list(item.reasons),
+                id=item.id, event_id=item.event_id, home_team=item.home_team,
+                away_team=item.away_team, market=item.market, market_name=item.market_name,
+                market_id=item.market_id, specifier=item.specifier, outcome_id=item.outcome_id,
+                selection=item.selection, odds=str(item.odds), probability=item.probability,
+                confidence=item.confidence, reasons=list(item.reasons),
             )
             for item in result.predictions
         ],
     )
+
+
+@router.post("/over-1-5/generate", response_model=GeneratorResponse)
+async def generate_over_1_5(request: GeneratorRequest) -> GeneratorResponse:
+    return await _generate(Market.OVER_1_5, request)
 
 
 @router.post("/over-2-5/generate", response_model=GeneratorResponse)
@@ -114,15 +107,9 @@ async def generate_under_4_5(request: GeneratorRequest) -> GeneratorResponse:
 class CustomGeneratorRequest(BaseModel):
     target_odds: Decimal = Field(gt=1, le=Decimal("100000"))
     hours: int = Field(default=168, ge=1, le=720)
-    markets: list[Market] = Field(
-        default_factory=lambda: [
-            Market.OVER_2_5,
-            Market.BTTS,
-            Market.UNDER_2_5,
-            Market.UNDER_4_5,
-        ],
-        min_length=1,
-    )
+    market_filter: str | None = Field(default=None, min_length=1)
+    # Backwards-compatible API field. When omitted, all provider markets are used.
+    markets: list[Market] | None = None
 
 
 class CustomSelection(GeneratedPredictionResponse):
@@ -136,69 +123,58 @@ class CustomGeneratorResponse(BaseModel):
     selections: list[CustomSelection]
 
 
+def _selected_market(value: str | None) -> Market | None:
+    if not value:
+        return None
+    aliases = {
+        "over_1_5": Market.OVER_1_5,
+        "over_2_5": Market.OVER_2_5,
+        "under_2_5": Market.UNDER_2_5,
+        "under_4_5": Market.UNDER_4_5,
+        "btts": Market.BTTS,
+        "double_chance": Market.DOUBLE_CHANCE,
+        "match_result": Market.MATCH_RESULT,
+    }
+    return aliases.get(value.lower().strip())
+
+
 @router.post("/custom/generate", response_model=CustomGeneratorResponse)
 async def generate_custom(request: CustomGeneratorRequest) -> CustomGeneratorResponse:
-    """Generate a ticket by paging priority markets until the target is reachable."""
+    """Build a ticket from the exact selected market, or all available provider markets."""
     client = SportyBetClient()
     service = PredictionService()
-    market_filters = {
-        Market.BTTS: "GG/NG",
-        Market.OVER_2_5: "Over/Under",
-        Market.UNDER_2_5: "Over/Under",
-        Market.UNDER_4_5: "Over/Under",
-    }
-
-    events_by_id = {}
-    exhausted: set[Market] = set()
     optimizer = OddsOptimizer()
-    # Each page is fetched for every active market before running the optimizer.
+    selected_market = _selected_market(request.market_filter)
 
+    if request.market_filter and selected_market is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Unknown market filter. Use over_1_5, over_2_5, under_2_5, under_4_5, btts, double_chance, or match_result.",
+        )
+
+    if selected_market is None and request.markets:
+        if len(request.markets) == 1 and request.markets[0] != Market.ALL:
+            selected_market = request.markets[0]
+
+    # Important: one provider request per page. The old implementation made
+    # four provider calls per page, which could exceed the deployment gateway timeout.
+    max_pages = 3
     try:
-        for page in range(1, 21):
-            for market in request.markets:
-                if market in exhausted:
-                    continue
-
-                events, total = await client.get_upcoming_events(
-                    page=page,
-                    page_size=25,
-                    hours=request.hours,
-                    market_ids=market_filters[market],
-                )
-
-                for event in events:
-                    existing = events_by_id.get(event.id)
-                    if existing is None:
-                        events_by_id[event.id] = event
-                        continue
-
-                    merged = list(existing.markets)
-                    known = {(m.id, m.specifier) for m in merged}
-                    merged.extend(
-                        m for m in event.markets
-                        if (m.id, m.specifier) not in known
-                    )
-                    events_by_id[event.id] = event.__class__(
-                        id=existing.id,
-                        tournament_id=existing.tournament_id,
-                        tournament_name=existing.tournament_name,
-                        home_team=existing.home_team,
-                        away_team=existing.away_team,
-                        start_time=existing.start_time,
-                        status=existing.status,
-                        markets=tuple(merged),
-                    )
-
-                if not events or (total and page * 25 >= total):
-                    exhausted.add(market)
-
-            if exhausted.issuperset(request.markets):
+        for page in range(1, max_pages + 1):
+            events, _ = await client.get_upcoming_events(
+                page=page,
+                page_size=25,
+                hours=request.hours,
+                market_ids=None,
+            )
+            if not events:
                 break
 
-            predictions = []
-            all_events = list(events_by_id.values())
-            for selected_market in request.markets:
-                predictions.extend(service.generate(all_events, selected_market))
+            all_events = events
+            if selected_market is None:
+                predictions = service.generate_all_available(all_events)
+            else:
+                predictions = service.generate(all_events, selected_market)
 
             result = await run_in_threadpool(
                 optimizer.optimize,
@@ -213,18 +189,12 @@ async def generate_custom(request: CustomGeneratorRequest) -> CustomGeneratorRes
                     selection_count=len(result.selections),
                     selections=[
                         CustomSelection(
-                            id=item.id,
-                            event_id=item.event_id,
-                            home_team=item.home_team,
-                            away_team=item.away_team,
-                            market=item.market,
-                            market_id=item.market_id,
-                            specifier=item.specifier,
-                            outcome_id=item.outcome_id,
-                            selection=item.selection,
-                            odds=str(item.odds),
-                            probability=item.probability,
-                            confidence=item.confidence,
+                            id=item.id, event_id=item.event_id, home_team=item.home_team,
+                            away_team=item.away_team, market=item.market,
+                            market_name=item.market_name, market_id=item.market_id,
+                            specifier=item.specifier, outcome_id=item.outcome_id,
+                            selection=item.selection, odds=str(item.odds),
+                            probability=item.probability, confidence=item.confidence,
                             reasons=list(item.reasons),
                         )
                         for item in result.selections
@@ -235,5 +205,5 @@ async def generate_custom(request: CustomGeneratorRequest) -> CustomGeneratorRes
 
     raise HTTPException(
         status_code=422,
-        detail=f"Could not build a ticket reaching {request.target_odds} odds from the available priority markets.",
+        detail=f"Could not build a ticket reaching {request.target_odds} odds from the available markets.",
     )
