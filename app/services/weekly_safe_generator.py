@@ -112,10 +112,6 @@ class WeeklySafeGenerator:
         min_confidence: Confidence,
         candidate_limit_per_day: int,
     ) -> list[Prediction]:
-        allowed = {
-            Confidence.HIGH,
-            Confidence.VERY_HIGH,
-        }
         confidence_rank = {
             Confidence.LOW: 0,
             Confidence.MEDIUM: 1,
