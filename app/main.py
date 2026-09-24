@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.api.routes.analysis import router as analysis_router
+from app.api.routes.five_k import router as five_k_router
 from app.api.routes.generators import router as generators_router
 from app.api.routes.health import router as health_router
 from app.api.routes.one_k import router as one_k_router
@@ -15,3 +16,4 @@ app.include_router(predictions_router, prefix=settings.api_prefix)
 app.include_router(analysis_router, prefix=settings.api_prefix)
 app.include_router(generators_router, prefix=settings.api_prefix)
 app.include_router(one_k_router, prefix=settings.api_prefix)
+app.include_router(five_k_router, prefix=settings.api_prefix)
