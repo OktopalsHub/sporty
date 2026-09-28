@@ -30,9 +30,8 @@ class ParseSportyBetClient:
         self.base_url = (
             base_url or settings.parse_api_base_url
         ).rstrip("/")
-        self.timeout = max(
-            45.0,
-            timeout if timeout is not None else settings.sportybet_timeout,
+        self.timeout = (
+            timeout if timeout is not None else settings.sportybet_timeout
         )
         self.min_interval = (
             min_interval

@@ -3,7 +3,12 @@ from pydantic import BaseModel, Field
 
 from app.domain.markets import Market
 from app.domain.predictions import Prediction
-from app.providers.sportybet.client import SportyBetClient, SportyBetError
+from app.providers.sportybet.client import (
+    SportyBetClient,
+    SportyBetError,
+    provider_http_detail,
+    provider_http_status,
+)
 from app.services.five_k_generator import FiveKGenerator
 from app.services.prediction_service import PredictionService
 
@@ -55,7 +60,9 @@ async def generate_5k(request: FiveKRequest) -> FiveKResponse:
             hours=request.hours,
         )
     except SportyBetError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=provider_http_status(exc), detail=provider_http_detail(exc)
+        ) from exc
 
     predictions: list[Prediction] = []
     for market in Market:

@@ -3,7 +3,12 @@ from decimal import Decimal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.providers.sportybet.client import SportyBetClient, SportyBetError
+from app.providers.sportybet.client import (
+    SportyBetClient,
+    SportyBetError,
+    provider_http_detail,
+    provider_http_status,
+)
 from app.services.ticket_builder import TicketBuildError, TicketBuilder
 from app.db import SessionLocal
 from app.services.ticket_history_service import TicketHistoryService
@@ -47,7 +52,9 @@ async def build_ticket(session_id: str) -> TicketBuildResponse:
     except TicketBuildError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except SportyBetError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=provider_http_status(exc), detail=provider_http_detail(exc)
+        ) from exc
 
     return TicketBuildResponse(
         session_id=result.session_id,

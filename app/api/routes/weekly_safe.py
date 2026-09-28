@@ -1,10 +1,17 @@
+import asyncio
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.domain.markets import Market
 from app.domain.predictions import Confidence, Prediction
 from app.domain.provider import ProviderEvent
-from app.providers.sportybet.client import SportyBetClient, SportyBetError
+from app.providers.sportybet.client import (
+    SportyBetClient,
+    SportyBetError,
+    provider_http_detail,
+    provider_http_status,
+)
 from app.services.prediction_service import PredictionService
 from app.services.weekly_safe_generator import WeeklySafeGenerator
 
@@ -53,15 +60,21 @@ async def generate_weekly_safe(request: WeeklySafeRequest) -> WeeklySafeResponse
 
     try:
         # Fetch only the two market families used by the weekly strategy.
-        # This keeps Parse responses small enough for the hosted API timeout.
+        # The two fetches run concurrently to stay within the hosted
+        # gateway timeout (sequential Parse calls previously 502d).
         market_events: dict[str, ProviderEvent] = {}
-        for market_filter in ("Over/Under", "GG/NG"):
-            filtered_events, _ = await client.get_upcoming_events(
-                page=request.page,
-                page_size=request.page_size,
-                hours=request.hours,
-                market_ids=market_filter,
-            )
+        fetched = await asyncio.gather(
+            *[
+                client.get_upcoming_events(
+                    page=request.page,
+                    page_size=request.page_size,
+                    hours=request.hours,
+                    market_ids=market_filter,
+                )
+                for market_filter in ("Over/Under", "GG/NG")
+            ]
+        )
+        for filtered_events, _ in fetched:
             for event in filtered_events:
                 existing = market_events.get(event.id)
                 if existing is None:
@@ -85,7 +98,9 @@ async def generate_weekly_safe(request: WeeklySafeRequest) -> WeeklySafeResponse
                     )
         events = list(market_events.values())
     except SportyBetError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=provider_http_status(exc), detail=provider_http_detail(exc)
+        ) from exc
 
     predictions: list[Prediction] = []
     for market in Market:

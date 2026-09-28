@@ -6,7 +6,12 @@ from starlette.concurrency import run_in_threadpool
 
 from app.domain.markets import Market
 from app.domain.predictions import Confidence
-from app.providers.sportybet.client import SportyBetClient, SportyBetError
+from app.providers.sportybet.client import (
+    SportyBetClient,
+    SportyBetError,
+    provider_http_detail,
+    provider_http_status,
+)
 from app.services.market_generator import MarketGenerator
 from app.services.prediction_service import PredictionService
 from app.services.odds_optimizer import OddsOptimizer
@@ -54,7 +59,9 @@ async def _generate(market: Market, request: GeneratorRequest) -> GeneratorRespo
             page=request.page, page_size=request.page_size, hours=request.hours, market_ids=market_filter
         )
     except SportyBetError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=provider_http_status(exc), detail=provider_http_detail(exc)
+        ) from exc
 
     predictions = service.generate(events, market)
     result = MarketGenerator().generate(
@@ -201,7 +208,9 @@ async def generate_custom(request: CustomGeneratorRequest) -> CustomGeneratorRes
                     ],
                 )
     except SportyBetError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=provider_http_status(exc), detail=provider_http_detail(exc)
+        ) from exc
 
     raise HTTPException(
         status_code=422,
